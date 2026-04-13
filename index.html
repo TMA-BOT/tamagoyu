@@ -343,7 +343,7 @@ function signOut(){
 let currentRole = null;
 
 function emailToKey(email){
-  return email.replace(/\./g,'_').replace('@','@');
+  return email.replace(/\./g,'_').replace('@','_');
 }
 
 function getRoleLabel(role){
