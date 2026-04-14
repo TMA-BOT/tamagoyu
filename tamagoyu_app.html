@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>玉子湯 スタッフ</title>
+<style>
+:root{--bg:#faf9f7;--surface:#fff;--surface2:#f3f1ee;--border:rgba(0,0,0,.09);--border2:rgba(0,0,0,.16);--text:#1a1a18;--t2:#6b6860;--t3:#9e9c97;--green:#2d5a3d;--green-l:#e8f0eb;--amber:#b87333;--amber-l:#fdf3e7;--red:#943030;--red-l:#fdf0f0;--blue:#2c4f7a;--blue-l:#eef3fa;--r:10px;--rl:14px;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);}
+#app{display:flex;height:100%;flex-direction:column;}
+.topbar{background:var(--surface);border-bottom:.5px solid var(--border);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.topbar-title{font-size:15px;font-weight:700;color:var(--green);}
+.date-btn{background:none;border:none;cursor:pointer;padding:0;}
+.topbar-date{font-size:11px;color:var(--t3);text-decoration:underline dotted;text-underline-offset:3px;}
+.sync-bar{background:var(--surface);border-bottom:.5px solid var(--border);padding:6px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.sync-dot.connected{background:#2d5a3d;}.sync-dot.connecting{background:#b87333;animation:pulse .8s infinite;}.sync-dot.error{background:#943030;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.sync-label{font-size:11px;color:var(--t3);}.sync-date{font-size:12px;font-weight:600;color:var(--text);}
+.tabs{background:var(--surface);border-bottom:.5px solid var(--border);display:flex;flex-shrink:0;}
+.tab{flex:1;padding:10px 4px;font-size:11px;text-align:center;cursor:pointer;color:var(--t3);border-bottom:2px solid transparent;white-space:nowrap;}
+.tab.active{color:var(--green);font-weight:700;border-bottom-color:var(--green);}
+.main-scroll{flex:1;overflow-y:auto;}
+.content{padding:16px;max-width:720px;margin:0 auto;}
+.panel{display:none;}.panel.active{display:block;}
+.sec-label{font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.07em;text-transform:uppercase;margin:20px 0 10px;}
+.sec-label:first-child{margin-top:0;}
+.card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:14px 16px;margin-bottom:10px;}
+.badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;}
+.bvip{background:#f5f0ff;color:#4a2d8a;}.ballergy{background:var(--red-l);color:var(--red);}.banniv{background:var(--green-l);color:var(--green);}
+.bclean{background:var(--green-l);color:var(--green);}.bdirty{background:var(--red-l);color:var(--red);}.binprog{background:var(--amber-l);color:var(--amber);}.bcheck{background:var(--blue-l);color:var(--blue);}
+/* DASHBOARD */
+.sum-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px;}
+.metric{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:14px 12px;}
+.metric-n{font-size:28px;font-weight:700;}.metric-l{font-size:10px;color:var(--t3);margin-top:2px;line-height:1.4;}
+.note-item{display:flex;gap:10px;padding:11px 0;border-bottom:.5px solid var(--border);align-items:flex-start;}
+.note-item:last-child{border-bottom:none;}
+.note-ico{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.ico-w{background:var(--amber-l);color:var(--amber);}.ico-i{background:var(--blue-l);color:var(--blue);}.ico-o{background:var(--green-l);color:var(--green);}
+.note-title{font-size:13px;font-weight:600;}.note-sub{font-size:12px;color:var(--t2);margin-top:2px;}.note-time{font-size:11px;color:var(--t3);margin-top:3px;}
+/* GUESTS */
+.room-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+.rcard{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:12px 14px;cursor:pointer;}
+.rcard:active{background:var(--surface2);}
+.rcard-num{font-size:15px;font-weight:700;margin-bottom:4px;}.rcard-meta{font-size:12px;color:var(--text);font-weight:500;margin-bottom:2px;}
+.rcard-note{font-size:11px;color:var(--red);font-weight:600;margin-top:4px;padding:3px 7px;background:var(--red-l);border-radius:6px;display:inline-block;}
+.rcard-meals{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.meal-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;}
+.mb-dinner{background:var(--amber-l);color:var(--amber);}.mb-breakfast{background:var(--blue-l);color:var(--blue);}.mb-none{background:var(--surface2);color:var(--t3);}
+.guest-edit-btn{width:100%;margin-top:10px;padding:8px;border-radius:8px;border:.5px solid var(--border2);background:none;font-size:12px;color:var(--green);font-weight:600;cursor:pointer;}
+.guest-edit-btn:active{background:var(--green-l);}
+.add-guest-btn{width:100%;padding:12px;border-radius:var(--rl);border:1.5px dashed var(--border2);background:none;font-size:13px;color:var(--green);font-weight:600;cursor:pointer;margin-top:8px;}
+/* MODAL */
+.edit-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;}
+.edit-modal{background:var(--surface);border-radius:var(--rl);padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;}
+.em-title{font-size:15px;font-weight:700;margin-bottom:16px;}
+.em-label{font-size:11px;color:var(--t3);display:block;margin-bottom:5px;margin-top:12px;}
+.em-input{width:100%;padding:9px 12px;border:.5px solid var(--border2);border-radius:var(--r);font-size:14px;color:var(--text);background:var(--bg);outline:none;}
+.em-input:focus{border-color:var(--green);}
+.em-select{width:100%;padding:9px 12px;border:.5px solid var(--border2);border-radius:var(--r);font-size:14px;color:var(--text);background:var(--bg);outline:none;}
+.em-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.em-btns{display:flex;gap:8px;margin-top:16px;}
+.em-save{flex:1;padding:11px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;}
+.em-cancel{padding:11px 16px;background:none;border:.5px solid var(--border2);border-radius:var(--r);font-size:14px;color:var(--t2);cursor:pointer;}
+.em-delete{padding:11px 16px;background:none;border:.5px solid var(--red);border-radius:var(--r);font-size:14px;color:var(--red);cursor:pointer;}
+/* NUMPAD */
+.numpad-wrap{margin-top:4px;}
+.numpad-display{background:var(--surface2);border:.5px solid var(--border2);border-radius:var(--r);padding:10px 14px;font-size:22px;font-weight:700;text-align:center;margin-bottom:8px;min-height:48px;}
+.numpad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.nk{padding:14px 8px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--surface);font-size:18px;font-weight:600;cursor:pointer;text-align:center;user-select:none;}
+.nk:active{background:var(--green-l);}.nk-zero{grid-column:span 2;}.nk-del{background:var(--surface2);color:var(--red);}
+.nk-del:active{background:var(--red-l);}
+/* MEALS */
+.meal-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.meal-room{font-size:14px;font-weight:700;}.meal-pax{font-size:12px;color:var(--t2);margin-top:2px;}
+.meal-time{font-size:14px;font-weight:700;color:var(--green);}.meal-venue{font-size:11px;color:var(--t3);text-align:right;margin-top:2px;}
+.tags{display:flex;flex-wrap:wrap;gap:6px;}
+.tag{font-size:11px;padding:3px 9px;border-radius:20px;border:.5px solid var(--border2);color:var(--t2);background:var(--bg);}
+.tsp{background:var(--amber-l);color:var(--amber);border-color:#e8c090;}.tdr{background:var(--blue-l);color:var(--blue);border-color:#b5cce8;}.tch{background:#f0eefa;color:#4a2d8a;border-color:#c8b8f0;}.tal{background:var(--red-l);color:var(--red);border-color:#e8b0b0;}
+.meal-order-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--border);}
+.meal-order-row:last-child{border-bottom:none;}
+.mol{font-size:12px;color:var(--t3);min-width:60px;flex-shrink:0;}
+.mo-input{flex:1;padding:7px 10px;border:.5px solid var(--border2);border-radius:var(--r);font-size:13px;color:var(--text);background:var(--bg);outline:none;}
+.mo-input:focus{border-color:var(--green);}
+.meal-empty{text-align:center;padding:32px 16px;color:var(--t3);font-size:13px;}
+.meal-tabs{display:flex;gap:8px;margin-bottom:14px;}
+.meal-tab-btn{padding:7px 16px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:13px;color:var(--t2);cursor:pointer;}
+.meal-tab-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+/* CLEANING */
+.crow{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:.5px solid var(--border);}
+.crow:last-child{border-bottom:none;}
+.cdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.dc{background:#2d5a3d;}.dd{background:#943030;}.di{background:#b87333;}.dk{background:#2c4f7a;}
+.c-room{font-size:13px;font-weight:700;min-width:64px;}.c-st{font-size:12px;color:var(--t2);flex:1;}.c-time{font-size:11px;color:var(--t3);}
+/* CALENDAR */
+.cal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:80;display:none;align-items:flex-start;justify-content:center;padding-top:56px;}
+.cal-overlay.open{display:flex;}
+.cal-card{background:var(--surface);border-radius:var(--rl);padding:16px;width:100%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.15);}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.cal-month-label{font-size:15px;font-weight:700;color:var(--text);}
+.cal-nav{width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;}
+.cal-wd{text-align:center;font-size:11px;color:var(--t3);padding:4px 0;}
+.cal-wd:first-child{color:var(--red);}.cal-wd:last-child{color:var(--blue);}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.cal-day{aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;border:none;background:none;}
+.cal-day.today{background:var(--green-l);color:var(--green);font-weight:700;}
+.cal-day.selected{background:var(--green);color:#fff;font-weight:700;}
+.cal-day.other-month{color:var(--t3);}
+.cal-day.sun{color:var(--red);}.cal-day.sat{color:var(--blue);}
+.cal-day.selected.sun,.cal-day.selected.sat{color:#fff;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1a18;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:200;}
+.toast.show{opacity:1;}
+/* ROLE BADGE */
+.role-badge{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;margin-left:6px;}
+.role-admin{background:#f5f0ff;color:#4a2d8a;}
+.role-staff{background:var(--green-l);color:var(--green);}
+.role-viewer{background:var(--surface2);color:var(--t3);}
+.no-access{text-align:center;padding:40px 20px;color:var(--t3);font-size:13px;}
+/* LOGIN */
+#login-screen{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+.login-card{background:var(--surface);border-radius:var(--rl);border:.5px solid var(--border);padding:36px 28px;width:100%;max-width:340px;box-shadow:0 6px 32px rgba(0,0,0,.08);text-align:center;}
+.login-logo{font-size:24px;font-weight:700;color:var(--green);margin-bottom:6px;letter-spacing:.05em;}
+.login-sub{font-size:12px;color:var(--t3);margin-bottom:32px;}
+.google-btn{width:100%;padding:13px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--surface);font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:background .15s;}
+.google-btn:active{background:var(--surface2);}
+.google-icon{width:20px;height:20px;}
+.login-err{font-size:12px;color:var(--red);margin-top:12px;min-height:18px;}
+.user-info{display:flex;align-items:center;gap:8px;}
+.user-avatar{width:28px;height:28px;border-radius:50%;border:.5px solid var(--border);}
+.user-name{font-size:11px;color:var(--t2);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.logout-btn{font-size:11px;color:var(--t3);border:.5px solid var(--border2);background:none;padding:4px 8px;border-radius:20px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">玉子湯</div>
+    <div class="login-sub">スタッフ情報共有システム</div>
+    <button class="google-btn" onclick="signInWithGoogle()">
+      <svg class="google-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Googleでログイン
+    </button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+<div id="app" style="display:none;">
+  <div class="topbar">
+    <div class="topbar-title">玉子湯</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="date-btn" onclick="openCalendar()"><span class="topbar-date" id="tb-date"></span></button>
+      <div class="user-info">
+        <img class="user-avatar" id="user-avatar" src="" style="display:none;">
+        <span class="role-badge" id="role-badge" style="display:none;"></span>
+        <button class="logout-btn" onclick="signOut()">ログアウト</button>
+      </div>
+    </div>
+  </div>
+  <div class="sync-bar">
+    <div class="sync-dot connecting" id="sync-dot"></div>
+    <span class="sync-label" id="sync-label">接続中...</span>
+    <div style="flex:1;"></div>
+    <span class="sync-date" id="sync-date-label"></span>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="sw('dashboard',this)" data-tab="dashboard">🏠 ホーム</div>
+    <div class="tab" onclick="sw('guests',this)" data-tab="guests">👤 お客様</div>
+    <div class="tab" onclick="sw('meals',this)" data-tab="meals">🍽 食事</div>
+    <div class="tab" onclick="sw('cleaning',this)" data-tab="cleaning">🧹 清掃</div>
+  </div>
+  <div class="main-scroll">
+    <div class="content">
+      <!-- DASHBOARD -->
+      <div class="panel active" id="panel-dashboard">
+        <div class="sum-grid">
+          <div class="metric"><div class="metric-n" id="m-pax">0</div><div class="metric-l">本日の人数</div></div>
+          <div class="metric"><div class="metric-n" id="m-rooms">0</div><div class="metric-l">利用組数</div></div>
+          <div class="metric"><div class="metric-n">3</div><div class="metric-l">清掃中</div></div>
+          <div class="metric"><div class="metric-n">2</div><div class="metric-l">要対応</div></div>
+        </div>
+        <div class="sec-label">申し送り</div>
+        <div class="card">
+          <div class="note-item"><div class="note-ico ico-w">!</div><div><div class="note-title">アレルギーのお客様は食事・注文から確認</div><div class="note-sub">食事セクションでアレルギーバッジを確認してください</div></div></div>
+          <div class="note-item"><div class="note-ico ico-i">i</div><div><div class="note-title">日付をタップして切り替え</div><div class="note-sub">過去・未来の日付のデータも確認できます</div></div></div>
+          <div class="note-item"><div class="note-ico ico-o">✓</div><div><div class="note-title">リアルタイム同期中</div><div class="note-sub">入力内容は全端末に即時反映されます</div></div></div>
+        </div>
+      </div>
+      <!-- GUESTS -->
+      <div class="panel" id="panel-guests">
+        <div class="sec-label">本日のお客様</div>
+        <div class="room-grid" id="room-grid"></div>
+        <button class="add-guest-btn" id="add-guest-btn-el" onclick="openEditModal(null)">＋ お客様を追加</button>
+      </div>
+      <!-- 編集モーダル -->
+      <div class="edit-modal-bg" id="edit-modal-bg" style="display:none" onclick="closeEditModal(event)">
+        <div class="edit-modal" onclick="event.stopPropagation()">
+          <div class="em-title" id="em-title">お客様編集</div>
+          <input type="hidden" id="em-idx">
+          <label class="em-label">部屋番号</label>
+          <select class="em-select" id="em-room">
+            <option value="">選択してください</option>
+            <optgroup label="1階"><option value="101">101号室</option><option value="102">102号室</option><option value="103">103号室</option><option value="105">105号室</option><option value="106">106号室</option></optgroup>
+            <optgroup label="2階"><option value="201">201号室</option><option value="202">202号室</option><option value="203">203号室</option><option value="205">205号室</option><option value="206">206号室</option><option value="207">207号室</option><option value="208">208号室</option></optgroup>
+            <optgroup label="3階"><option value="301">301号室</option><option value="302">302号室</option><option value="303">303号室</option><option value="305">305号室</option><option value="306">306号室</option><option value="307">307号室</option></optgroup>
+            <optgroup label="4階"><option value="401">401号室</option><option value="402">402号室</option><option value="403">403号室</option><option value="405">405号室</option><option value="406">406号室</option><option value="407">407号室</option><option value="408">408号室</option><option value="410">410号室</option><option value="411">411号室</option><option value="412">412号室</option><option value="413">413号室</option><option value="415">415号室</option><option value="417">417号室</option><option value="418">418号室</option></optgroup>
+            <optgroup label="5階"><option value="501">501号室</option><option value="502">502号室</option><option value="503">503号室</option><option value="510">510号室</option><option value="511">511号室</option><option value="512">512号室</option><option value="513">513号室</option><option value="515">515号室</option><option value="517">517号室</option><option value="518">518号室</option></optgroup>
+          </select>
+          <label class="em-label">人数</label>
+          <div id="em-numpad-wrap" style="margin-top:4px;">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;">
+              <div style="text-align:center;font-size:10px;color:var(--t3);">大人男</div><div style="text-align:center;font-size:10px;color:var(--t3);">大人女</div><div style="text-align:center;font-size:10px;color:var(--t3);">添い寝</div>
+              <div class="numpad-display" id="em-man-display" onclick="selectGuestField('man')" style="cursor:pointer;font-size:16px;padding:8px;">0</div>
+              <div class="numpad-display" id="em-woman-display" onclick="selectGuestField('woman')" style="cursor:pointer;font-size:16px;padding:8px;">0</div>
+              <div class="numpad-display" id="em-baby-display" onclick="selectGuestField('baby')" style="cursor:pointer;font-size:16px;padding:8px;">0</div>
+              <div style="text-align:center;font-size:10px;color:var(--t3);margin-top:4px;">子A（高学年）</div><div style="text-align:center;font-size:10px;color:var(--t3);margin-top:4px;">子B（低学年）</div><div></div>
+              <div class="numpad-display" id="em-ca-display" onclick="selectGuestField('ca')" style="cursor:pointer;font-size:16px;padding:8px;">0</div>
+              <div class="numpad-display" id="em-cb-display" onclick="selectGuestField('cb')" style="cursor:pointer;font-size:16px;padding:8px;">0</div>
+              <div></div>
+            </div>
+            <input type="hidden" id="em-man" value="0"><input type="hidden" id="em-woman" value="0">
+            <input type="hidden" id="em-ca" value="0"><input type="hidden" id="em-cb" value="0"><input type="hidden" id="em-baby" value="0">
+            <div style="font-size:11px;color:var(--green);margin-bottom:6px;text-align:center;" id="em-numpad-selected-label">大人男 を入力中</div>
+            <div class="numpad-grid">
+              <button type="button" class="nk" onclick="numpadGuestInput(1)">1</button><button type="button" class="nk" onclick="numpadGuestInput(2)">2</button><button type="button" class="nk" onclick="numpadGuestInput(3)">3</button>
+              <button type="button" class="nk" onclick="numpadGuestInput(4)">4</button><button type="button" class="nk" onclick="numpadGuestInput(5)">5</button><button type="button" class="nk" onclick="numpadGuestInput(6)">6</button>
+              <button type="button" class="nk" onclick="numpadGuestInput(7)">7</button><button type="button" class="nk" onclick="numpadGuestInput(8)">8</button><button type="button" class="nk" onclick="numpadGuestInput(9)">9</button>
+              <button type="button" class="nk nk-zero" onclick="numpadGuestInput(0)">0</button><button type="button" class="nk nk-del" onclick="numpadGuestDelete()">⌫</button>
+            </div>
+          </div>
+          <label class="em-label">夕食</label>
+          <div class="em-row">
+            <div><label class="em-label">時間</label><select class="em-select" id="em-dinner"><option value="">なし</option><option value="18:00">18:00</option><option value="19:00">19:00</option></select></div>
+            <div><label class="em-label">会場</label><select class="em-select" id="em-dinner-venue"><option value="">－</option><option value="花山水">花山水</option><option value="磐梯">磐梯</option><option value="陸奥">陸奥</option><option value="蓬莱">蓬莱（5階）</option><option value="信夫5">信夫5</option><option value="信夫6">信夫6</option><option value="信夫7">信夫7</option><option value="信夫8">信夫8</option></select></div>
+          </div>
+          <label class="em-label">食事種別</label>
+          <div class="em-row">
+            <div><label class="em-label">大人</label><select class="em-select" id="em-dinner-type"><option value="懐石">懐石</option><option value="懐石2日目">懐石2日目</option><option value="懐石3日目">懐石3日目</option><option value="中華">中華</option></select></div>
+            <div><label class="em-label">子ども</label><select class="em-select" id="em-dinner-type-child"><option value="">－</option><option value="子ども用懐石">子ども用懐石</option><option value="子ども用ランチ">子ども用ランチ</option></select></div>
+          </div>
+          <label class="em-label">朝食</label>
+          <div class="em-row">
+            <div><label class="em-label">時間</label><select class="em-select" id="em-breakfast"><option value="">なし</option><option value="7:30">7:30</option><option value="8:00">8:00</option></select></div>
+            <div><label class="em-label">会場</label><select class="em-select" id="em-breakfast-venue"><option value="">－</option><option value="花山水">花山水</option><option value="磐梯">磐梯</option><option value="陸奥">陸奥</option><option value="蓬莱">蓬莱（5階）</option><option value="信夫5">信夫5</option><option value="信夫6">信夫6</option><option value="信夫7">信夫7</option><option value="信夫8">信夫8</option></select></div>
+          </div>
+          <label class="em-label">特記・ご要望</label>
+          <input class="em-input" id="em-note" type="text" placeholder="アレルギー、記念日など">
+          <label class="em-label">バッジ</label>
+          <select class="em-select" id="em-badge"><option value="">なし</option><option value="bvip">VIP</option><option value="ballergy">アレルギー</option><option value="banniv">記念日</option></select>
+          <div class="em-btns">
+            <button class="em-cancel" onclick="closeEditModal()">キャンセル</button>
+            <button class="em-delete" id="em-del-btn" onclick="deleteGuest()">削除</button>
+            <button class="em-save" onclick="saveGuest()">保存</button>
+          </div>
+        </div>
+      </div>
+      <!-- MEALS -->
+      <div class="panel" id="panel-meals">
+        <div class="meal-tabs">
+          <button class="meal-tab-btn active" id="mtab-dinner" onclick="switchMealTab('dinner')">夕食</button>
+          <button class="meal-tab-btn" id="mtab-breakfast" onclick="switchMealTab('breakfast')">朝食</button>
+          <button class="meal-tab-btn" id="mtab-lunch" onclick="switchMealTab('lunch')">ランチ</button>
+        </div>
+        <div id="meals-list"></div>
+        <div id="lunch-list" style="display:none;"></div>
+        <button class="add-guest-btn" id="add-lunch-btn" style="display:none;" onclick="openLunchModal(null)">＋ ランチを追加</button>
+        <div class="edit-modal-bg" id="lunch-modal-bg" style="display:none;" onclick="closeLunchModal(event)">
+          <div class="edit-modal" onclick="event.stopPropagation()">
+            <div class="em-title" id="lm-title">ランチ追加</div>
+            <input type="hidden" id="lm-idx">
+            <label class="em-label">人数</label>
+            <div class="numpad-wrap">
+              <div class="numpad-display" id="lm-pax-display">0</div>
+              <input type="hidden" id="lm-pax" value="0">
+              <div class="numpad-grid">
+                <button type="button" class="nk" onclick="numpadInput('lunch',1)">1</button><button type="button" class="nk" onclick="numpadInput('lunch',2)">2</button><button type="button" class="nk" onclick="numpadInput('lunch',3)">3</button>
+                <button type="button" class="nk" onclick="numpadInput('lunch',4)">4</button><button type="button" class="nk" onclick="numpadInput('lunch',5)">5</button><button type="button" class="nk" onclick="numpadInput('lunch',6)">6</button>
+                <button type="button" class="nk" onclick="numpadInput('lunch',7)">7</button><button type="button" class="nk" onclick="numpadInput('lunch',8)">8</button><button type="button" class="nk" onclick="numpadInput('lunch',9)">9</button>
+                <button type="button" class="nk nk-zero" onclick="numpadInput('lunch',0)">0</button><button type="button" class="nk nk-del" onclick="numpadDelete('lunch')">⌫</button>
+              </div>
+            </div>
+            <label class="em-label">食事メニュー</label>
+            <div id="lm-food-items" style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px;"></div>
+            <button type="button" onclick="addLunchFoodItem()" style="width:100%;padding:7px;border-radius:8px;border:.5px dashed var(--border2);background:none;font-size:12px;color:var(--green);cursor:pointer;margin-bottom:8px;">＋ メニューを追加</button>
+            <label class="em-label">ドリンク</label>
+            <div id="lm-drink-items" style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px;"></div>
+            <button type="button" onclick="addLunchDrinkItem()" style="width:100%;padding:7px;border-radius:8px;border:.5px dashed var(--border2);background:none;font-size:12px;color:var(--blue);cursor:pointer;margin-bottom:8px;">＋ ドリンクを追加</button>
+            <div style="background:var(--surface2);border-radius:var(--r);padding:12px;margin-top:4px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:13px;color:var(--t2);">合計金額</span>
+                <span style="font-size:20px;font-weight:700;color:var(--green);" id="lm-total-display">¥0</span>
+              </div>
+            </div>
+            <input type="hidden" id="lm-charge" value="0">
+            <div class="em-btns">
+              <button class="em-cancel" onclick="closeLunchModal()">キャンセル</button>
+              <button class="em-delete" id="lm-del-btn" onclick="deleteLunch()">削除</button>
+              <button class="em-save" onclick="saveLunch()">保存</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- CLEANING -->
+      <div class="panel" id="panel-cleaning">
+        <div class="sec-label">清掃・点検状況</div>
+        <div class="card">
+          <div class="crow"><div class="cdot dc"></div><div class="c-room">101号室</div><div class="c-st">清掃完了・点検済み</div><span class="badge bclean">完了</span><div class="c-time">14:20</div></div>
+          <div class="crow"><div class="cdot di"></div><div class="c-room">203号室</div><div class="c-st">清掃中</div><span class="badge binprog">進行中</span><div class="c-time">15:10〜</div></div>
+          <div class="crow"><div class="cdot dd"></div><div class="c-room">205号室</div><div class="c-st">未着手</div><span class="badge bdirty">未着手</span><div class="c-time"></div></div>
+          <div class="crow"><div class="cdot dk"></div><div class="c-room">301号室</div><div class="c-st">清掃済み・点検待ち</div><span class="badge bcheck">点検待ち</span><div class="c-time">13:50</div></div>
+          <div class="crow"><div class="cdot dc"></div><div class="c-room">402号室</div><div class="c-st">清掃完了・点検済み</div><span class="badge bclean">完了</span><div class="c-time">12:40</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="cal-overlay" id="cal-overlay" onclick="calOverlayClick(event)">
+  <div class="cal-card" onclick="event.stopPropagation()">
+    <div class="cal-header">
+      <button class="cal-nav" onclick="calMove(-1)">&#8249;</button>
+      <span class="cal-month-label" id="cal-month-label"></span>
+      <button class="cal-nav" onclick="calMove(1)">&#8250;</button>
+    </div>
+    <div class="cal-weekdays"><div class="cal-wd">日</div><div class="cal-wd">月</div><div class="cal-wd">火</div><div class="cal-wd">水</div><div class="cal-wd">木</div><div class="cal-wd">金</div><div class="cal-wd">土</div></div>
+    <div class="cal-days" id="cal-days"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script>
+// ===== FIREBASE =====
+const firebaseConfig={apiKey:"AIzaSyCvwcccgCOMgaAFrfm02tWXK2pm-W6DlpA",authDomain:"tamagoyu-test.firebaseapp.com",databaseURL:"https://tamagoyu-test-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"tamagoyu-test",storageBucket:"tamagoyu-test.firebasestorage.app",messagingSenderId:"402904957371",appId:"1:402904957371:web:69d04a1f4cd7d3a567c49e"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+let isWriting=false,currentDateKey='';
+const auth=firebase.auth();
+const provider=new firebase.auth.GoogleAuthProvider();
+
+function signInWithGoogle(){
+  document.getElementById('login-err').textContent='';
+  auth.signInWithPopup(provider).catch(function(err){
+    document.getElementById('login-err').textContent='ログインに失敗しました: '+err.message;
+  });
+}
+function signOut(){
+  if(!confirm('ログアウトしますか？'))return;
+  auth.signOut();
+}
+
+let currentRole = null;
+
+function emailToKey(email){
+  return email.replace(/\./g,'_').replace('@','_');
+}
+
+function getRoleLabel(role){
+  if(role==='admin') return '管理者';
+  if(role==='staff') return 'スタッフ';
+  if(role==='viewer') return '閲覧';
+  return '閲覧';
+}
+function getRoleClass(role){
+  if(role==='admin') return 'role-admin';
+  if(role==='staff') return 'role-staff';
+  return 'role-viewer';
+}
+
+function applyRole(role){
+  currentRole = role || 'viewer';
+  // ロールバッジ表示
+  const badge = document.getElementById('role-badge');
+  if(badge){
+    badge.textContent = getRoleLabel(currentRole);
+    badge.className = 'role-badge ' + getRoleClass(currentRole);
+    badge.style.display = '';
+  }
+  // 権限に応じてUIを調整
+  applyPermissions();
+}
+
+function applyPermissions(){
+  const canEdit = currentRole === 'admin' || currentRole === 'staff';
+  const isAdmin = currentRole === 'admin';
+  // お客様追加ボタン
+  const addBtn = document.getElementById('add-guest-btn-el');
+  if(addBtn) addBtn.style.display = canEdit ? '' : 'none';
+  // 食事の注文入力
+  document.querySelectorAll('.mo-input').forEach(function(el){
+    el.disabled = !canEdit;
+    el.style.background = canEdit ? '' : 'var(--surface2)';
+  });
+  // ランチ追加ボタン
+  const lunchBtn = document.getElementById('add-lunch-btn');
+  // 編集ボタン（閲覧者には非表示）
+  document.querySelectorAll('.guest-edit-btn').forEach(function(el){
+    el.style.display = canEdit ? '' : 'none';
+  });
+}
+
+function canEdit(){
+  return currentRole === 'admin' || currentRole === 'staff';
+}
+
+auth.onAuthStateChanged(function(user){
+  if(user){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    const av=document.getElementById('user-avatar');
+    if(av&&user.photoURL){av.src=user.photoURL;av.style.display='block';}
+    // ロールを取得
+    const key = emailToKey(user.email);
+    db.ref('roles/'+key+'/role').once('value').then(function(snap){
+      const role = snap.val() || 'viewer';
+      applyRole(role);
+      updateDateDisplay();
+      updateSyncDateLabel();
+      listenDate(selectedDate);
+    }).catch(function(){
+      applyRole('viewer');
+      updateDateDisplay();
+      updateSyncDateLabel();
+      listenDate(selectedDate);
+    });
+  } else {
+    currentRole = null;
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('app').style.display='none';
+    if(activeListener){db.ref('dates/'+currentDateKey).off('value',activeListener);activeListener=null;}
+  }
+});
+function getDateKey(d){const date=d||selectedDate;return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');}
+function setSyncStatus(s,m){const dot=document.getElementById('sync-dot'),lbl=document.getElementById('sync-label');if(dot)dot.className='sync-dot '+s;if(lbl)lbl.textContent=m;}
+function updateSyncDateLabel(){const el=document.getElementById('sync-date-label');if(el)el.textContent=formatDate(selectedDate);}
+let activeListener=null;
+function listenDate(d){
+  const key=getDateKey(d);
+  if(currentDateKey===key&&activeListener)return;
+  if(activeListener){db.ref('dates/'+currentDateKey).off('value',activeListener);activeListener=null;}
+  currentDateKey=key;
+  setSyncStatus('connecting','接続中...');
+  activeListener=db.ref('dates/'+key).on('value',function(snap){
+    if(isWriting)return;
+    const data=snap.val();
+    if(data){GUESTS=data.guests||[];LUNCHES=data.lunches||[];}
+    else{GUESTS=[];LUNCHES=[];}
+    buildGuests();buildMeals();
+    setSyncStatus('connected','リアルタイム同期中');updateSyncDateLabel();
+  },function(){setSyncStatus('error','接続エラー');});
+}
+function pushData(){
+  if(!currentDateKey)return;
+  isWriting=true;
+  db.ref('dates/'+currentDateKey).set({guests:GUESTS,lunches:LUNCHES,updatedAt:Date.now()})
+    .then(function(){isWriting=false;})
+    .catch(function(){isWriting=false;setSyncStatus('error','保存エラー');});
+}
+function switchDate(d){selectedDate=d;updateDateDisplay();updateSyncDateLabel();listenDate(d);}
+
+// ===== DATA =====
+const BADGE_MAP={bvip:'VIP',ballergy:'アレルギー',banniv:'記念日'};
+let GUESTS=[],LUNCHES=[];
+
+function paxStr(g){const p=[];if(g.man>0)p.push('男'+g.man);if(g.woman>0)p.push('女'+g.woman);if(g.ca>0)p.push('子A'+g.ca);if(g.cb>0)p.push('子B'+g.cb);if(g.baby>0)p.push('添'+g.baby);return p.join(' ');}
+
+function buildGuests(){
+  const g=document.getElementById('room-grid');g.innerHTML='';
+  GUESTS.forEach(function(gu,i){
+    const c=document.createElement('div');c.className='rcard';
+    const bl=gu.badge?(BADGE_MAP[gu.badge]||''):'';
+    const dv=gu.dinnerVenue?' '+gu.dinnerVenue:'';
+    const bv=gu.breakfastVenue?' '+gu.breakfastVenue:'';
+    const db2=gu.dinner?('<span class="meal-badge mb-dinner">夕'+gu.dinner+dv+'</span>'):'<span class="meal-badge mb-none">夕なし</span>';
+    const bb=gu.breakfast?('<span class="meal-badge mb-breakfast">朝'+gu.breakfast+bv+'</span>'):'<span class="meal-badge mb-none">朝なし</span>';
+    const nh=gu.note?('<div class="rcard-note">'+gu.note+'</div>'):'';
+    const bh=gu.badge?('<span class="badge '+gu.badge+'">'+bl+'</span>'):'';
+    c.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="rcard-num">'+gu.room+'号室</span>'+bh+'</div>'
+      +'<div class="rcard-meta">'+paxStr(gu)+'</div>'
+      +'<div class="rcard-meals">'+db2+bb+'</div>'+nh
+      +'<button class="guest-edit-btn" onclick="event.stopPropagation();openEditModal('+i+')">編集</button>';
+    g.appendChild(c);
+  });
+  updateDashboard();
+  if(document.getElementById('panel-meals').classList.contains('active'))buildMeals();
+  applyPermissions();
+}
+function updateDashboard(){
+  const t=GUESTS.reduce(function(s,g){return s+(g.man||0)+(g.woman||0)+(g.ca||0)+(g.cb||0)+(g.baby||0);},0);
+  const m=document.querySelectorAll('.metric-n');
+  if(m[0])m[0].textContent=t;if(m[1])m[1].textContent=GUESTS.length;
+}
+function openEditModal(idx){
+  if(!canEdit()){showToast('編集権限がありません');return;}
+  const isNew=idx===null;
+  document.getElementById('em-title').textContent=isNew?'お客様を追加':'お客様編集';
+  document.getElementById('em-idx').value=isNew?'':idx;
+  document.getElementById('em-del-btn').style.display=isNew?'none':'';
+  const g=isNew?{room:'',man:0,woman:0,ca:0,cb:0,baby:0,dinner:'',breakfast:'',note:'',badge:''}:GUESTS[idx];
+  document.getElementById('em-room').value=g.room||'';
+  setGN('man',g.man||0);setGN('woman',g.woman||0);setGN('ca',g.ca||0);setGN('cb',g.cb||0);setGN('baby',g.baby||0);
+  selectGuestField('man');
+  document.getElementById('em-dinner').value=g.dinner||'';
+  document.getElementById('em-dinner-venue').value=g.dinnerVenue||'';
+  document.getElementById('em-dinner-type').value=g.dinnerType||'懐石';
+  document.getElementById('em-dinner-type-child').value=g.dinnerTypeChild||'';
+  document.getElementById('em-breakfast').value=g.breakfast||'';
+  document.getElementById('em-breakfast-venue').value=g.breakfastVenue||'';
+  document.getElementById('em-note').value=g.note||'';
+  document.getElementById('em-badge').value=g.badge||'';
+  document.getElementById('edit-modal-bg').style.display='flex';
+}
+function closeEditModal(e){if(!e||e.target===document.getElementById('edit-modal-bg'))document.getElementById('edit-modal-bg').style.display='none';}
+function saveGuest(){
+  const idx=document.getElementById('em-idx').value;
+  const g={
+    room:String(document.getElementById('em-room').value),
+    man:parseInt(document.getElementById('em-man').value)||0,woman:parseInt(document.getElementById('em-woman').value)||0,
+    ca:parseInt(document.getElementById('em-ca').value)||0,cb:parseInt(document.getElementById('em-cb').value)||0,baby:parseInt(document.getElementById('em-baby').value)||0,
+    dinner:document.getElementById('em-dinner').value,dinnerVenue:document.getElementById('em-dinner-venue').value,
+    dinnerType:document.getElementById('em-dinner-type').value,dinnerTypeChild:document.getElementById('em-dinner-type-child').value,
+    breakfast:document.getElementById('em-breakfast').value,breakfastVenue:document.getElementById('em-breakfast-venue').value,
+    note:document.getElementById('em-note').value.trim(),badge:document.getElementById('em-badge').value,
+  };
+  if(idx===''){g.dinnerOrder={special:'',drink:'',charge:''};g.breakfastOrder={special:'',drink:'',charge:''};GUESTS.push(g);}
+  else{const ex=GUESTS[parseInt(idx)];g.dinnerOrder=ex.dinnerOrder||{special:'',drink:'',charge:''};g.breakfastOrder=ex.breakfastOrder||{special:'',drink:'',charge:''};GUESTS[parseInt(idx)]=g;}
+  document.getElementById('edit-modal-bg').style.display='none';
+  buildGuests();buildMeals();pushData();
+}
+function deleteGuest(){
+  const idx=parseInt(document.getElementById('em-idx').value);if(isNaN(idx))return;
+  if(!confirm('削除しますか？'))return;
+  GUESTS.splice(idx,1);document.getElementById('edit-modal-bg').style.display='none';buildGuests();pushData();
+}
+
+// ===== MEALS =====
+document.addEventListener('input',function(e){if(e.target.classList.contains('mo-input')){const r=e.target.dataset.room,k=e.target.dataset.key,f=e.target.dataset.field;if(r&&k&&f)saveOrder(r,k,f,e.target.value);}});
+let mealTab='dinner';
+function switchMealTab(tab){
+  mealTab=tab;
+  ['dinner','breakfast','lunch'].forEach(function(t){document.getElementById('mtab-'+t).classList.toggle('active',t===tab);});
+  const isL=tab==='lunch';
+  document.getElementById('meals-list').style.display=isL?'none':'';
+  document.getElementById('lunch-list').style.display=isL?'':'none';
+  document.getElementById('add-lunch-btn').style.display=isL?'':'none';
+  if(isL)buildLunchList();else buildMeals();
+}
+function buildMeals(){
+  const list=document.getElementById('meals-list');if(!list)return;
+  const isDinner=mealTab==='dinner';
+  const filtered=GUESTS.filter(g=>isDinner?g.dinner:g.breakfast);
+  if(!filtered.length){list.innerHTML='<div class="meal-empty">該当する予約がありません</div>';return;}
+  filtered.sort((a,b)=>{const ta=isDinner?a.dinner:a.breakfast,tb=isDinner?b.dinner:b.breakfast;return ta.localeCompare(tb);});
+  list.innerHTML='';
+  filtered.forEach(function(gu){
+    const time=isDinner?gu.dinner:gu.breakfast;
+    const venue=isDinner?(gu.dinnerVenue||''):(gu.breakfastVenue||'');
+    const ok=isDinner?'dinnerOrder':'breakfastOrder';
+    const order=gu[ok]||{special:'',drink:'',charge:''};
+    const bl=gu.badge?(BADGE_MAP[gu.badge]||''):'';
+    const at=gu.badge==='ballergy'?'<span class="tag tal" style="font-size:10px;">アレルギー注意</span>':'';
+    const dt=isDinner&&gu.dinnerType?'<span class="tag tsp" style="font-size:10px;">大人:'+escHtml(gu.dinnerType)+(gu.dinnerTypeChild?' 子:'+escHtml(gu.dinnerTypeChild):'')+'</span>':'';
+    const div=document.createElement('div');div.className='card';
+    div.innerHTML='<div class="meal-hd"><div><div class="meal-room">'+gu.room+'号室'+(gu.badge&&gu.badge!=='ballergy'?' <span class="badge '+gu.badge+'" style="font-size:9px;">'+bl+'</span>':'')+'</div><div class="meal-pax">'+paxStr(gu)+'</div></div><div><div class="meal-time">'+time+'</div><div class="meal-venue">'+venue+'</div></div></div>'
+      +(at?'<div style="margin-bottom:8px;">'+at+'</div>':'')
+      +(dt?'<div style="margin-bottom:8px;">'+dt+'</div>':'')
+      +'<div class="meal-order-row"><span class="mol">別注</span><input class="mo-input" type="text" value="'+escHtml(order.special||'')+'" data-room="'+gu.room+'" data-key="'+ok+'" data-field="special"></div>'
+      +'<div class="meal-order-row"><span class="mol">ドリンク</span><input class="mo-input" type="text" value="'+escHtml(order.drink||'')+'" data-room="'+gu.room+'" data-key="'+ok+'" data-field="drink"></div>'
+      +'<div class="meal-order-row"><span class="mol">部屋付け</span><input class="mo-input" type="text" value="'+escHtml(order.charge||'')+'" data-room="'+gu.room+'" data-key="'+ok+'" data-field="charge"></div>';
+    list.appendChild(div);
+  });
+}
+function saveOrder(room,ok,field,value){const g=GUESTS.find(function(x){return x.room===room;});if(!g)return;if(!g[ok])g[ok]={special:'',drink:'',charge:''};g[ok][field]=value;}
+
+// ===== LUNCH =====
+// ===== LUNCH MENUS =====
+const FOOD_MENU=[
+  {name:'きつね蕎麦',price:800},{name:'きつねうどん',price:800},
+  {name:'山菜蕎麦',price:800},{name:'山菜うどん',price:800},
+  {name:'肉蕎麦',price:800},{name:'肉うどん',price:800},
+  {name:'おにぎりセット（肉味噌・大葉・梅）',price:600},
+  {name:'日替わりおにぎり',price:200},{name:'ミニ牛丼',price:500},
+];
+const DRINK_MENU=[
+  {name:'生ビール',price:800},{name:'瓶ビール（中）',price:850},
+  {name:'ウーロン茶',price:400},{name:'コカ・コーラ',price:400},
+  {name:'オレンジジュース',price:400},
+];
+
+function makeLunchItemRow(type, item, idx){
+  const menus = type==='food' ? FOOD_MENU : DRINK_MENU;
+  const color = type==='food' ? 'var(--text)' : 'var(--blue)';
+  const opts = menus.map(function(m){
+    return '<option value="'+m.name+'" data-price="'+m.price+'"'+(item&&item.name===m.name?' selected':'')+'>'+m.name+' ¥'+m.price.toLocaleString()+'</option>';
+  }).join('');
+  const qty = item ? item.qty : 1;
+  return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;" data-type="'+type+'" data-idx="'+idx+'">'
+    +'<select class="em-select lm-item-select" style="flex:1;font-size:13px;" onchange="calcLunchTotal()">'
+    +'<option value="">選択してください</option>'+opts+'</select>'
+    +'<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">'
+    +'<button type="button" onclick="lunchQtyChange(this,-1)" style="width:28px;height:28px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:16px;cursor:pointer;">－</button>'
+    +'<span class="lm-qty" style="min-width:20px;text-align:center;font-size:14px;font-weight:600;">'+qty+'</span>'
+    +'<button type="button" onclick="lunchQtyChange(this,1)" style="width:28px;height:28px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:16px;cursor:pointer;">＋</button>'
+    +'</div>'
+    +'<button type="button" onclick="removeLunchItem(this)" style="width:28px;height:28px;border-radius:50%;border:.5px solid var(--red-l);background:none;color:var(--red);font-size:16px;cursor:pointer;">✕</button>'
+    +'</div>';
+}
+
+function addLunchFoodItem(){
+  const c=document.getElementById('lm-food-items');
+  const idx=c.querySelectorAll('[data-type=food]').length;
+  c.insertAdjacentHTML('beforeend',makeLunchItemRow('food',null,idx));
+}
+function addLunchDrinkItem(){
+  const c=document.getElementById('lm-drink-items');
+  const idx=c.querySelectorAll('[data-type=drink]').length;
+  c.insertAdjacentHTML('beforeend',makeLunchItemRow('drink',null,idx));
+}
+function removeLunchItem(btn){
+  btn.closest('[data-type]').remove();
+  calcLunchTotal();
+}
+function lunchQtyChange(btn,dir){
+  const qtyEl=btn.parentElement.querySelector('.lm-qty');
+  let q=parseInt(qtyEl.textContent)||1;
+  q=Math.max(1,q+dir);
+  qtyEl.textContent=q;
+  calcLunchTotal();
+}
+function calcLunchTotal(){
+  let total=0;
+  document.querySelectorAll('#lm-food-items .lm-item-select, #lm-drink-items .lm-item-select').forEach(function(sel){
+    const opt=sel.options[sel.selectedIndex];
+    if(!opt||!opt.dataset.price)return;
+    const price=parseInt(opt.dataset.price)||0;
+    const row=sel.closest('[data-type]');
+    const qty=parseInt(row.querySelector('.lm-qty').textContent)||1;
+    total+=price*qty;
+  });
+  document.getElementById('lm-total-display').textContent='¥'+total.toLocaleString();
+  document.getElementById('lm-charge').value=total;
+}
+function collectLunchItems(containerId){
+  const items=[];
+  document.querySelectorAll('#'+containerId+' [data-type]').forEach(function(row){
+    const sel=row.querySelector('.lm-item-select');
+    const opt=sel?sel.options[sel.selectedIndex]:null;
+    if(!opt||!opt.value)return;
+    const qty=parseInt(row.querySelector('.lm-qty').textContent)||1;
+    items.push({name:opt.value,price:parseInt(opt.dataset.price)||0,qty:qty});
+  });
+  return items;
+}
+function renderLunchItems(containerId, items, type){
+  const c=document.getElementById(containerId);
+  c.innerHTML='';
+  (items||[]).forEach(function(item,i){
+    c.insertAdjacentHTML('beforeend',makeLunchItemRow(type,item,i));
+  });
+}
+
+function buildLunchList(){
+  const list=document.getElementById('lunch-list');if(!list)return;
+  if(!LUNCHES.length){list.innerHTML='<div class="meal-empty">ランチの予約がありません</div>';return;}
+  list.innerHTML='';
+  let totalPax=0;
+  LUNCHES.forEach(function(lu,i){
+    totalPax+=lu.pax||1;
+    const foodHtml=(lu.foodItems||[]).map(function(f){return '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span>'+escHtml(f.name)+' ×'+f.qty+'</span><span>¥'+((f.price*f.qty)).toLocaleString()+'</span></div>';}).join('');
+    const drinkHtml=(lu.drinkItems||[]).map(function(d){return '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span>'+escHtml(d.name)+' ×'+d.qty+'</span><span>¥'+((d.price*d.qty)).toLocaleString()+'</span></div>';}).join('');
+    const charge=parseInt(lu.charge)||0;
+    const div=document.createElement('div');div.className='card';
+    div.innerHTML='<div class="meal-hd"><div><div class="meal-room">ランチ '+(i+1)+'</div><div class="meal-pax">'+(lu.pax||1)+'名</div></div><div style="text-align:right;"><div style="font-size:18px;font-weight:700;color:var(--green);">¥'+charge.toLocaleString()+'</div></div></div>'
+      +(foodHtml?'<div style="border-top:.5px solid var(--border);padding-top:8px;margin-top:4px;">'+foodHtml+'</div>':'')
+      +(drinkHtml?'<div style="border-top:.5px solid var(--border);padding-top:8px;margin-top:4px;">'+drinkHtml+'</div>':'')
+      +'<button class="guest-edit-btn" onclick="openLunchModal('+i+')">編集</button>';
+    list.appendChild(div);
+  });
+  const s=document.createElement('div');s.style.cssText='text-align:right;font-size:12px;color:var(--t3);padding:8px 4px;';
+  const totalCharge=LUNCHES.reduce(function(a,l){return a+(parseInt(l.charge)||0);},0);
+  s.textContent='合計 '+totalPax+'名 ／ ¥'+totalCharge.toLocaleString();
+  list.appendChild(s);
+}
+
+function openLunchModal(idx){
+  if(!canEdit()){showToast('編集権限がありません');return;}
+  const isNew=idx===null;
+  document.getElementById('lm-title').textContent=isNew?'ランチ追加':'ランチ編集';
+  document.getElementById('lm-idx').value=isNew?'':idx;
+  document.getElementById('lm-del-btn').style.display=isNew?'none':'';
+  const lu=isNew?{pax:1,foodItems:[],drinkItems:[],charge:0}:LUNCHES[idx];
+  const p=String(lu.pax||1);
+  document.getElementById('lm-pax').value=p;
+  document.getElementById('lm-pax-display').textContent=p;
+  document.getElementById('lm-charge').value=lu.charge||0;
+  document.getElementById('lm-total-display').textContent='¥'+(parseInt(lu.charge)||0).toLocaleString();
+  renderLunchItems('lm-food-items', lu.foodItems||[], 'food');
+  renderLunchItems('lm-drink-items', lu.drinkItems||[], 'drink');
+  document.getElementById('lunch-modal-bg').style.display='flex';
+}
+function closeLunchModal(e){if(!e||e.target===document.getElementById('lunch-modal-bg'))document.getElementById('lunch-modal-bg').style.display='none';}
+function saveLunch(){
+  const idx=document.getElementById('lm-idx').value;
+  const lu={
+    pax:parseInt(document.getElementById('lm-pax').value)||1,
+    foodItems:collectLunchItems('lm-food-items'),
+    drinkItems:collectLunchItems('lm-drink-items'),
+    charge:parseInt(document.getElementById('lm-charge').value)||0,
+  };
+  if(idx==='')LUNCHES.push(lu);else LUNCHES[parseInt(idx)]=lu;
+  document.getElementById('lunch-modal-bg').style.display='none';
+  buildLunchList();pushData();
+}
+function deleteLunch(){
+  const idx=parseInt(document.getElementById('lm-idx').value);if(isNaN(idx))return;
+  if(!confirm('削除しますか？'))return;
+  LUNCHES.splice(idx,1);
+  document.getElementById('lunch-modal-bg').style.display='none';
+  buildLunchList();pushData();
+}
+
+// ===== NUMPAD =====
+function numpadInput(t,n){const h=document.getElementById('lm-pax'),d=document.getElementById('lm-pax-display');if(!h||!d)return;let c=h.value==='0'?'':h.value;c=c+String(n);if(c.length>3)c=c.slice(0,3);h.value=c||'0';d.textContent=c||'0';}
+function numpadDelete(t){const h=document.getElementById('lm-pax'),d=document.getElementById('lm-pax-display');if(!h||!d)return;h.value=h.value.slice(0,-1)||'0';d.textContent=h.value;}
+let cgf='man';
+const GF={man:{d:'em-man-display',h:'em-man',l:'大人男'},woman:{d:'em-woman-display',h:'em-woman',l:'大人女'},ca:{d:'em-ca-display',h:'em-ca',l:'子A'},cb:{d:'em-cb-display',h:'em-cb',l:'子B'},baby:{d:'em-baby-display',h:'em-baby',l:'添い寝'}};
+function selectGuestField(f){
+  cgf=f;
+  Object.keys(GF).forEach(function(k){const el=document.getElementById(GF[k].d);if(el){el.style.borderColor=k===f?'var(--green)':'';el.style.fontWeight=k===f?'700':'500';}});
+  const lbl=document.getElementById('em-numpad-selected-label');if(lbl)lbl.textContent=GF[f].l+' を入力中';
+}
+function numpadGuestInput(n){const f=GF[cgf];if(!f)return;const h=document.getElementById(f.h),d=document.getElementById(f.d);if(!h||!d)return;let c=h.value==='0'?'':h.value;c=c+String(n);if(c.length>2)c=c.slice(0,2);h.value=c||'0';d.textContent=c||'0';}
+function numpadGuestDelete(){const f=GF[cgf];if(!f)return;const h=document.getElementById(f.h),d=document.getElementById(f.d);if(!h||!d)return;h.value=h.value.slice(0,-1)||'0';d.textContent=h.value;}
+function setGN(field,val){const f=GF[field];if(!f)return;const h=document.getElementById(f.h),d=document.getElementById(f.d);if(h)h.value=String(val);if(d)d.textContent=String(val);}
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+// ===== TABS =====
+function sw(name,clicked){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(clicked)clicked.classList.add('active');
+  if(name==='meals')buildMeals();
+  document.querySelector('.main-scroll').scrollTop=0;
+}
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+
+// ===== CALENDAR =====
+let selectedDate=new Date(),calViewYear=selectedDate.getFullYear(),calViewMonth=selectedDate.getMonth();
+function formatDate(d){return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日（'+['日','月','火','水','木','金','土'][d.getDay()]+'）';}
+function updateDateDisplay(){const ds=formatDate(selectedDate);const e=document.getElementById('tb-date');if(e)e.textContent=ds;}
+function openCalendar(){calViewYear=selectedDate.getFullYear();calViewMonth=selectedDate.getMonth();renderCalendar();document.getElementById('cal-overlay').classList.add('open');}
+function calOverlayClick(e){if(e.target===document.getElementById('cal-overlay'))document.getElementById('cal-overlay').classList.remove('open');}
+function calMove(dir){calViewMonth+=dir;if(calViewMonth>11){calViewMonth=0;calViewYear++;}if(calViewMonth<0){calViewMonth=11;calViewYear--;}renderCalendar();}
+function renderCalendar(){
+  document.getElementById('cal-month-label').textContent=calViewYear+'年'+(calViewMonth+1)+'月';
+  const days=document.getElementById('cal-days');days.innerHTML='';
+  const today=new Date(),fd=new Date(calViewYear,calViewMonth,1).getDay(),ld=new Date(calViewYear,calViewMonth+1,0).getDate(),pd=new Date(calViewYear,calViewMonth,0).getDate();
+  for(let i=0;i<fd;i++){const d=document.createElement('button');d.className='cal-day other-month';d.textContent=pd-fd+1+i;days.appendChild(d);}
+  for(let i=1;i<=ld;i++){
+    const d=document.createElement('button'),dow=new Date(calViewYear,calViewMonth,i).getDay();
+    let cls='cal-day';if(dow===0)cls+=' sun';if(dow===6)cls+=' sat';
+    if(calViewYear===today.getFullYear()&&calViewMonth===today.getMonth()&&i===today.getDate())cls+=' today';
+    if(calViewYear===selectedDate.getFullYear()&&calViewMonth===selectedDate.getMonth()&&i===selectedDate.getDate())cls+=' selected';
+    d.className=cls;d.textContent=i;
+    (function(y,m,day){d.addEventListener('click',function(){document.getElementById('cal-overlay').classList.remove('open');switchDate(new Date(y,m,day));});})(calViewYear,calViewMonth,i);
+    days.appendChild(d);
+  }
+  const rem=(7-((fd+ld)%7))%7;for(let i=1;i<=rem;i++){const d=document.createElement('button');d.className='cal-day other-month';d.textContent=i;days.appendChild(d);}
+}
+
+// 初期化はonAuthStateChangedで行います
+</script>
+</body>
+</html>
