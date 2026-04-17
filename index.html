@@ -5,7 +5,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-    import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCvwcccgCOMgaAFrfm02tWXK2pm-W6DlpA",
@@ -17,21 +17,78 @@
       appId: "1:402904957371:web:69d04a1f4cd7d3a567c49e"
     };
     const app = initializeApp(firebaseConfig);
-    window._db = getDatabase(app);
-    window._auth = getAuth(app);
+    const db = getDatabase(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // DB操作をwindowに公開
+    window._db = db;
+    window._auth = auth;
     window._dbRef = ref;
     window._dbSet = set;
     window._dbGet = get;
     window._dbOnValue = onValue;
-    window._signInWithPopup = signInWithPopup;
-    window._signInWithRedirect = signInWithRedirect;
-    window._getRedirectResult = getRedirectResult;
-    window._GoogleAuthProvider = GoogleAuthProvider;
-    window._onAuthStateChanged = onAuthStateChanged;
     window._signOut = signOut;
-    // providerをあらかじめ作成
-    const _provider = new GoogleAuthProvider();
-    window._googleProvider = _provider;
+
+    // ログイン関数を直接定義
+    window.doLoginFirebase = function(){
+      signInWithPopup(auth, provider)
+        .then(function(result){
+          console.log('login ok:', result.user.email);
+        })
+        .catch(function(error){
+          console.error('login error:', error.code, error.message);
+          if(typeof showToast==='function')showToast('ログイン失敗: '+error.code);
+        });
+    };
+
+    // 認証状態監視
+    onAuthStateChanged(auth, function(user){
+      window._currentUser = user;
+      if(user){
+        const emailKey = user.email.replace(/\./g,'_').replace(/@/g,'_at_');
+        const roleRef = ref(db, 'roles/'+emailKey+'/role');
+        get(roleRef).then(function(snap){
+          window._userRole = snap.exists() ? snap.val() : 'admin';
+          const roleLabel = {'admin':'管理者','staff':'スタッフ','viewer':'閲覧のみ'};
+          const lbl = document.getElementById('sync-label');
+          if(lbl) lbl.textContent = (user.displayName||user.email)+' ('+(roleLabel[window._userRole]||window._userRole)+')';
+          const rb = document.getElementById('tb-role');
+          if(rb){ rb.textContent = roleLabel[window._userRole]||window._userRole; rb.style.display=''; }
+          const loginBtn = document.getElementById('login-btn');
+          const logoutBtn = document.getElementById('logout-btn');
+          if(loginBtn) loginBtn.style.display='none';
+          if(logoutBtn) logoutBtn.style.display='';
+          if(typeof updateEditMode==='function') updateEditMode();
+          if(typeof updateDateDisplay==='function') updateDateDisplay();
+          if(typeof loadDateData==='function'&&typeof selectedDate!=='undefined') loadDateData(selectedDate);
+        }).catch(function(){
+          window._userRole='admin';
+          const lbl=document.getElementById('sync-label');
+          if(lbl)lbl.textContent=user.displayName||user.email;
+          const loginBtn=document.getElementById('login-btn');
+          const logoutBtn=document.getElementById('logout-btn');
+          if(loginBtn)loginBtn.style.display='none';
+          if(logoutBtn)logoutBtn.style.display='';
+          if(typeof updateEditMode==='function')updateEditMode();
+          if(typeof updateDateDisplay==='function')updateDateDisplay();
+          if(typeof loadDateData==='function'&&typeof selectedDate!=='undefined')loadDateData(selectedDate);
+        });
+      } else {
+        window._userRole='viewer';
+        const lbl=document.getElementById('sync-label');
+        if(lbl)lbl.textContent='未ログイン';
+        const rb=document.getElementById('tb-role');
+        if(rb)rb.style.display='none';
+        const loginBtn=document.getElementById('login-btn');
+        const logoutBtn=document.getElementById('logout-btn');
+        if(loginBtn)loginBtn.style.display='';
+        if(logoutBtn)logoutBtn.style.display='none';
+        if(typeof updateEditMode==='function')updateEditMode();
+        if(typeof updateDateDisplay==='function')updateDateDisplay();
+        if(typeof loadDateData==='function'&&typeof selectedDate!=='undefined')loadDateData(selectedDate);
+      }
+    });
   </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>玉子湯 スタッフ（プレビュー）</title>
@@ -2877,18 +2934,17 @@ function showToast(m){const t=document.getElementById('toast');t.textContent=m;t
 let selectedDate=new Date(),calViewYear=selectedDate.getFullYear(),calViewMonth=selectedDate.getMonth();
 function formatDate(d){return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日（'+['日','月','火','水','木','金','土'][d.getDay()]+'）';}
 function doLogin(){
-  if(window._signInWithPopup&&window._auth&&window._googleProvider){
-    window._signInWithPopup(window._auth,window._googleProvider).catch(function(e){
-      showToast('ログイン失敗: '+e.message);
-      console.error('login error:',e);
-    });
+  if(window.doLoginFirebase){
+    window.doLoginFirebase();
+  } else {
+    showToast('Firebase未初期化です。しばらくお待ちください。');
   }
 }
 function doLogout(){
   if(window._signOut&&window._auth){
     window._signOut(window._auth).then(function(){
       showToast('ログアウトしました');
-    });
+    }).catch(function(e){console.error(e);});
   }
 }
 function updateDateDisplay(){const e=document.getElementById('tb-date');if(e)e.textContent=formatDate(selectedDate);const s=document.getElementById('sync-date-label');if(s)s.textContent=formatDate(selectedDate);}
@@ -3090,58 +3146,5 @@ function updateEditMode(){
   if(lbl&&!window._currentUser)lbl.textContent='※ 未ログイン（閲覧のみ）';
   else if(lbl)lbl.textContent='';
 }
-function initWithAuth(){
-  // リダイレクト後の結果を処理
-  if(window._getRedirectResult&&window._auth){
-    window._getRedirectResult(window._auth).catch(function(e){
-      console.log('redirect result error:',e.message);
-    });
-  }
-  if(window._onAuthStateChanged&&window._auth){
-    window._onAuthStateChanged(window._auth,function(user){
-      window._currentUser=user;
-      if(user){
-        document.getElementById('login-btn').style.display='none';
-        document.getElementById('logout-btn').style.display='';
-        // Firebaseからロール取得
-        const emailKey=user.email.replace(/\./g,'_').replace(/@/g,'_at_');
-        if(window._db){
-          window._dbGet(window._dbRef(window._db,'roles/'+emailKey+'/role')).then(function(snap){
-            window._userRole=snap.exists()?snap.val():'admin';// デフォルトはadmin（後で変更可）
-            const roleLabel={'admin':'管理者','staff':'スタッフ','viewer':'閲覧のみ'};
-            document.getElementById('sync-label').textContent=(user.displayName||user.email)+' ('+( roleLabel[window._userRole]||window._userRole)+')';
-            const roleBadge=document.getElementById('tb-role');
-            if(roleBadge){roleBadge.textContent=roleLabel[window._userRole]||window._userRole;roleBadge.style.display='';}
-            updateEditMode();
-            updateDateDisplay();
-            loadDateData(selectedDate);
-          }).catch(function(){
-            window._userRole='admin';
-            document.getElementById('sync-label').textContent=user.displayName||user.email;
-            updateEditMode();updateDateDisplay();loadDateData(selectedDate);
-          });
-        } else {
-          window._userRole='admin';
-          document.getElementById('sync-label').textContent=user.displayName||user.email;
-          updateEditMode();updateDateDisplay();loadDateData(selectedDate);
-        }
-      } else {
-        window._userRole='viewer';
-        document.getElementById('sync-label').textContent='未ログイン';
-        document.getElementById('login-btn').style.display='';
-        document.getElementById('logout-btn').style.display='none';
-        const roleBadge2=document.getElementById('tb-role');
-        if(roleBadge2)roleBadge2.style.display='none';
-        updateEditMode();
-        updateDateDisplay();
-        loadDateData(selectedDate);
-      }
-    });
-  } else {
-    updateDateDisplay();loadDateData(selectedDate);
-  }
-}
-setTimeout(initWithAuth, 500);
-</script>
-</body>
-</html>
+function initWithAuth(){/* auth handled by firebase module */}
+
