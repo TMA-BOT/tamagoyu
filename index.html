@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+  <script type="module">
+    import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import{getDatabase,ref,set,get,onValue}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import{getAuth,signInWithPopup,GoogleAuthProvider,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    const app=initializeApp({apiKey:"AIzaSyCvwcccgCOMgaAFrfm02tWXK2pm-W6DlpA",authDomain:"tamagoyu-test.firebaseapp.com",databaseURL:"https://tamagoyu-test-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"tamagoyu-test",storageBucket:"tamagoyu-test.appspot.com",messagingSenderId:"402904957371",appId:"1:402904957371:web:69d04a1f4cd7d3a567c49e"});
+    const db=getDatabase(app),auth=getAuth(app),provider=new GoogleAuthProvider();
+    window._db=db;window._auth=auth;window._dbRef=ref;window._dbSet=set;window._dbGet=get;window._dbOnValue=onValue;
+    window.doLoginFirebase=function(){signInWithPopup(auth,provider).catch(function(e){if(typeof showToast==='function')showToast('ログイン失敗:'+e.code);console.error(e);});};
+    window.doLogoutFirebase=function(){signOut(auth);};
+    onAuthStateChanged(auth,function(user){
+      window._currentUser=user;
+      if(user){
+        const ek=user.email.replace(/\./g,'_').replace(/@/g,'_at_');
+        get(ref(db,'roles/'+ek+'/role')).then(function(s){
+          window._userRole=s.exists()?s.val():'admin';
+          const rl={'admin':'管理者','staff':'スタッフ','viewer':'閲覧のみ','front':'フロント'};
+          const sl=document.getElementById('sync-label');if(sl)sl.textContent=(user.displayName||user.email)+' ('+(rl[window._userRole]||window._userRole)+')';
+          const rb=document.getElementById('tb-role');if(rb){rb.textContent=rl[window._userRole]||window._userRole;rb.style.display='';}
+          const lb=document.getElementById('login-btn');if(lb)lb.style.display='none';
+          const lo=document.getElementById('logout-btn');if(lo)lo.style.display='';
+          if(typeof updateEditMode==='function')updateEditMode();
+          if(typeof loadDateData==='function')loadDateData(window.selectedDate||new Date());
+        }).catch(function(){window._userRole='admin';if(typeof updateEditMode==='function')updateEditMode();if(typeof loadDateData==='function')loadDateData(window.selectedDate||new Date());});
+      } else {
+        window._userRole='viewer';
+        const sl=document.getElementById('sync-label');if(sl)sl.textContent='未ログイン';
+        const rb=document.getElementById('tb-role');if(rb)rb.style.display='none';
+        const lb=document.getElementById('login-btn');if(lb)lb.style.display='';
+        const lo=document.getElementById('logout-btn');if(lo)lo.style.display='none';
+        if(typeof updateEditMode==='function')updateEditMode();
+      }
+    });
+  </script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>玉子湯 スタッフ</title>
+<style>
+:root{--bg:#faf9f7;--surface:#fff;--surface2:#f3f1ee;--border:rgba(0,0,0,.09);--border2:rgba(0,0,0,.16);--text:#1a1a18;--t2:#6b6860;--t3:#9e9c97;--green:#2d5a3d;--green-l:#e8f0eb;--amber:#b87333;--amber-l:#fdf3e7;--red:#943030;--red-l:#fdf0f0;--blue:#2c4f7a;--blue-l:#eef3fa;--r:10px;--rl:14px;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);}
+#app{display:flex;height:100%;flex-direction:column;}
+.topbar{background:var(--surface);border-bottom:.5px solid var(--border);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.topbar-title{font-size:15px;font-weight:700;color:var(--green);}
+.date-btn{background:none;border:none;cursor:pointer;padding:0;}
+.topbar-date{font-size:11px;color:var(--t3);text-decoration:underline dotted;text-underline-offset:3px;}
+.sync-bar{background:var(--surface);border-bottom:.5px solid var(--border);padding:6px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:#2d5a3d;}
+.sync-label{font-size:11px;color:var(--t3);}.sync-date{font-size:12px;font-weight:600;color:var(--text);}
+.tabs{background:var(--surface);border-bottom:.5px solid var(--border);display:flex;flex-shrink:0;}
+.tab{flex:1;padding:10px 4px;font-size:11px;text-align:center;cursor:pointer;color:var(--t3);border-bottom:2px solid transparent;white-space:nowrap;}
+.tab.active{color:var(--green);font-weight:700;border-bottom-color:var(--green);}
+.main-scroll{flex:1;overflow-y:auto;}
+.content{padding:16px;max-width:720px;margin:0 auto;}
+.panel{display:none;}.panel.active{display:block;}
+.sec-label{font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.07em;text-transform:uppercase;margin:20px 0 10px;}
+.sec-label:first-child{margin-top:0;}
+.card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:14px 16px;margin-bottom:10px;}
+.badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;}
+.bvip{background:#f5f0ff;color:#4a2d8a;}.ballergy{background:var(--red-l);color:var(--red);}.banniv{background:var(--green-l);color:var(--green);}
+.bclean{background:var(--green-l);color:var(--green);}.bdirty{background:var(--red-l);color:var(--red);}.binprog{background:var(--amber-l);color:var(--amber);}.bcheck{background:var(--blue-l);color:var(--blue);}
+.sum-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px;}
+.metric{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:14px 12px;}
+.metric-n{font-size:28px;font-weight:700;}.metric-l{font-size:10px;color:var(--t3);margin-top:2px;line-height:1.4;}
+.note-item{display:flex;gap:10px;padding:11px 0;border-bottom:.5px solid var(--border);align-items:flex-start;}
+.note-item:last-child{border-bottom:none;}
+.note-ico{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.ico-w{background:var(--amber-l);color:var(--amber);}.ico-i{background:var(--blue-l);color:var(--blue);}.ico-o{background:var(--green-l);color:var(--green);}
+.note-title{font-size:13px;font-weight:600;}.note-sub{font-size:12px;color:var(--t2);margin-top:2px;}.note-time{font-size:11px;color:var(--t3);margin-top:3px;}
+.room-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+.rcard{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:12px 14px;cursor:pointer;}
+.rcard:active{background:var(--surface2);}
+.rcard-num{font-size:15px;font-weight:700;margin-bottom:4px;}.rcard-meta{font-size:12px;color:var(--text);font-weight:500;margin-bottom:2px;}
+.rcard-note{font-size:11px;color:var(--red);font-weight:600;margin-top:4px;padding:3px 7px;background:var(--red-l);border-radius:6px;display:inline-block;}
+.rcard-meals{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.meal-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;}
+.mb-dinner{background:var(--amber-l);color:var(--amber);}.mb-breakfast{background:var(--blue-l);color:var(--blue);}.mb-none{background:var(--surface2);color:var(--t3);}
+.guest-edit-btn{width:100%;margin-top:10px;padding:8px;border-radius:8px;border:.5px solid var(--border2);background:none;font-size:12px;color:var(--green);font-weight:600;cursor:pointer;}
+.guest-edit-btn:active{background:var(--green-l);}
+.add-guest-btn{width:100%;padding:12px;border-radius:var(--rl);border:1.5px dashed var(--border2);background:none;font-size:13px;color:var(--green);font-weight:600;cursor:pointer;margin-top:8px;}
+.edit-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;}
+.edit-modal{background:var(--surface);border-radius:var(--rl);padding:16px;width:100%;max-width:480px;max-height:95vh;overflow-y:auto;}
+.em-title{font-size:15px;font-weight:700;margin-bottom:16px;}
+.em-label{font-size:11px;color:var(--t3);display:block;margin-bottom:5px;margin-top:12px;}
+.em-input{width:100%;padding:9px 12px;border:.5px solid var(--border2);border-radius:var(--r);font-size:14px;color:var(--text);background:var(--bg);outline:none;}
+.em-input:focus{border-color:var(--green);}
+.em-select{width:100%;padding:9px 12px;border:.5px solid var(--border2);border-radius:var(--r);font-size:14px;color:var(--text);background:var(--bg);outline:none;}
+.em-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.em-btns{display:flex;gap:8px;margin-top:16px;}
+.em-save{flex:1;padding:11px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;}
+.em-cancel{padding:11px 16px;background:none;border:.5px solid var(--border2);border-radius:var(--r);font-size:14px;color:var(--t2);cursor:pointer;}
+.em-delete{padding:11px 16px;background:none;border:.5px solid var(--red);border-radius:var(--r);font-size:14px;color:var(--red);cursor:pointer;}
+.numpad-wrap{margin-top:4px;}
+.numpad-display{background:var(--surface2);border:.5px solid var(--border2);border-radius:var(--r);padding:7px 10px;font-size:20px;font-weight:700;text-align:center;margin-bottom:6px;min-height:40px;}
+.numpad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+.nk{padding:10px 6px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--surface);font-size:16px;font-weight:600;cursor:pointer;text-align:center;user-select:none;}
+.nk:active{background:var(--green-l);}.nk-zero{grid-column:span 2;}.nk-del{background:var(--surface2);color:var(--red);}
+.nk-del:active{background:var(--red-l);}
+.meal-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.meal-room{font-size:14px;font-weight:700;}.meal-pax{font-size:12px;color:var(--t2);margin-top:2px;}
+.meal-time{font-size:14px;font-weight:700;color:var(--green);}.meal-venue{font-size:11px;color:var(--t3);text-align:right;margin-top:2px;}
+.tag{font-size:11px;padding:3px 9px;border-radius:20px;border:.5px solid var(--border2);color:var(--t2);background:var(--bg);}
+.tsp{background:var(--amber-l);color:var(--amber);border-color:#e8c090;}.tal{background:var(--red-l);color:var(--red);border-color:#e8b0b0;}
+.meal-order-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--border);}
+.meal-order-row:last-child{border-bottom:none;}
+.mol{font-size:12px;color:var(--t3);min-width:60px;flex-shrink:0;}
+.mo-input{flex:1;padding:7px 10px;border:.5px solid var(--border2);border-radius:var(--r);font-size:13px;color:var(--text);background:var(--bg);outline:none;}
+.meal-empty{text-align:center;padding:32px 16px;color:var(--t3);font-size:13px;}
+.meal-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+@media(min-width:600px){.meal-grid{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:900px){.meal-grid{grid-template-columns:repeat(4,1fr);}}
+.mcard{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:10px 12px;position:relative;}
+.mcard-room{font-size:14px;font-weight:700;color:var(--text);}
+.mcard-time{font-size:12px;font-weight:700;color:var(--green);margin-top:2px;}
+.mcard-venue{font-size:10px;color:var(--t3);}
+.mcard-pax{font-size:11px;color:var(--t2);margin-top:3px;}
+.mcard-type{font-size:13px;color:var(--text);margin-top:3px;font-weight:700;}
+.mcard-note{font-size:10px;color:var(--red);font-weight:600;margin-top:4px;padding:2px 5px;background:var(--red-l);border-radius:4px;display:inline-block;}
+.mcard-allergy{position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--red);}
+.mcard-order{margin-top:6px;padding-top:6px;border-top:.5px solid var(--border);}
+.mcard-order-row{font-size:10px;color:var(--t2);display:flex;align-items:center;gap:4px;margin-top:3px;}
+.mcard-order-label{color:var(--t3);flex-shrink:0;min-width:20px;}
+.mo-input-sm{flex:1;padding:3px 6px;border:.5px solid var(--border2);border-radius:6px;font-size:11px;color:var(--text);background:var(--bg);outline:none;width:100%;}
+.mo-input-sm:focus{border-color:var(--green);}
+.lcard{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:6px 8px;}
+.lcard-num{font-size:12px;color:var(--text);font-weight:700;}
+.lcard-charge{font-size:13px;font-weight:700;color:var(--green);margin-top:0px;}
+.lcard-pax{font-size:11px;color:var(--t2);}
+.lcard-items{margin-top:3px;padding-top:3px;border-top:.5px solid var(--border);}
+.lcard-item{padding:1px 0;font-size:14px;font-weight:700;color:var(--text);}
+.lcard-status{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:6px;}
+.lcard-status.paid{background:var(--green-l);color:var(--green);}
+.lcard-status.venue{background:var(--blue-l);color:var(--blue);}
+.meal-tabs{display:flex;gap:8px;margin-bottom:14px;align-items:center;}
+.meal-tab-btn{padding:7px 16px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:13px;color:var(--t2);cursor:pointer;}
+.meal-tab-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+.crow{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:.5px solid var(--border);}
+.crow:last-child{border-bottom:none;}
+.cdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.dc{background:#2d5a3d;}.dd{background:#943030;}.di{background:#b87333;}.dk{background:#2c4f7a;}
+.c-room{font-size:13px;font-weight:700;min-width:64px;}.c-st{font-size:12px;color:var(--t2);flex:1;}.c-time{font-size:11px;color:var(--t3);}
+.cal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:80;display:none;align-items:flex-start;justify-content:center;padding-top:56px;}
+.cal-overlay.open{display:flex;}
+.cal-card{background:var(--surface);border-radius:var(--rl);padding:16px;width:100%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.15);}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.cal-month-label{font-size:15px;font-weight:700;color:var(--text);}
+.cal-nav{width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;}
+.cal-wd{text-align:center;font-size:11px;color:var(--t3);padding:4px 0;}
+.cal-wd:first-child{color:var(--red);}.cal-wd:last-child{color:var(--blue);}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.cal-day{aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;border:none;background:none;}
+.cal-day.today{background:var(--green-l);color:var(--green);font-weight:700;}
+.cal-day.selected{background:var(--green);color:#fff;font-weight:700;}
+.cal-day.other-month{color:var(--t3);}
+.cal-day.sun{color:var(--red);}.cal-day.sat{color:var(--blue);}
+.cal-day.selected.sun,.cal-day.selected.sat{color:#fff;}
+.monthly-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;}
+.monthly-overlay.open{display:flex;}
+.monthly-card{background:var(--surface);border-radius:var(--rl);padding:20px;width:100%;max-width:480px;margin:auto;}
+.monthly-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.monthly-title{font-size:15px;font-weight:700;color:var(--text);}
+.monthly-close{width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+@media print{
+  @page{size:A3 landscape;margin:5mm;}
+  body *{visibility:hidden;}
+  #ryoin-map-canvas,#ryoin-map-canvas *{visibility:visible;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+  #ryoin-map-canvas{
+    position:fixed!important;
+    top:0!important;left:0!important;
+    margin:0!important;padding:0!important;
+    border:none!important;border-radius:0!important;
+    transform-origin:top left!important;
+  }
+  .no-print{display:none!important;}
+}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1a18;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:200;}
+.toast.show{opacity:1;}
+.role-badge{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;margin-left:6px;}
+.role-admin{background:#f5f0ff;color:#4a2d8a;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-title">玉子湯</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="date-btn" onclick="openCalendar()"><span class="topbar-date" id="tb-date"></span></button>
+      <span class="role-badge role-admin" id="tb-role" style="display:none;font-size:10px;padding:2px 7px;white-space:nowrap;"></span>
+      <button id="login-btn" onclick="doLogin()" style="padding:3px 8px;border-radius:20px;border:.5px solid var(--green);background:var(--green-l);color:var(--green);font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">ログイン</button>
+      <button id="logout-btn" onclick="doLogout()" style="display:none;padding:3px 8px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:10px;cursor:pointer;white-space:nowrap;">ログアウト</button>
+    </div>
+  </div>
+  <div class="sync-bar">
+    <div class="sync-dot" id="sync-dot" style="background:#b87333;"></div>
+    <span id="sync-label" style="font-size:10px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px;"></span>
+    <div style="flex:1;"></div>
+    <span class="sync-date" id="sync-date-label"></span>
+  </div>function loadDateData(d,carryOver){
+  CHECKOUT_ROOMS=[];CLEANING_DATA={};TABLE_PROGRESS={hana:{},band:{}};
+  GUESTS=[];LUNCHES=[];BETCHU=[];
+  const key=getDateKey(d);
+  startRealtimeSync(key);
+  _lastLunchCount=0;
+  if(window._db&&window._currentUser){
+    window._dbGet(window._dbRef(window._db,'dates/'+key)).then(function(snap){
+      _applyLoadedData(snap.exists()?snap.val():null,d,carryOver);
+    }).catch(function(){
+      try{const raw=localStorage.getItem('tamagoyu_'+key);_applyLoadedData(raw?JSON.parse(raw):null,d,carryOver);}catch(e){_applyLoadedData(null,d,carryOver);}
+    });
+    return;
+  }
+  try{const raw=localStorage.getItem('tamagoyu_'+key);_applyLoadedData(raw?JSON.parse(raw):null,d,carryOver);}catch(e){_applyLoadedData(null,d,carryOver);}
+}
+function _applyLoadedData(data,d,carryOver){
+  if(data){
+    GUESTS=data.guests||[];LUNCHES=data.lunches||[];BETCHU=data.betchu||[];
+    CLEANING_DATA=data.cleaningData||{};TABLE_PROGRESS=data.tableProgress||{hana:{},band:{}};
+  } else if(carryOver){
+    const prevDate=new Date(d);
+    prevDate.setDate(prevDate.getDate()-1);
+    const prevKey=getDateKey(prevDate);
+    try{
+      const prevRaw=localStorage.getItem('tamagoyu_'+prevKey);
+      if(prevRaw){
+        const prevData=JSON.parse(prevRaw);
+        GUESTS=(prevData.guests||[]).filter(function(g){return !g.checkedOut;}).map(function(g){
+          const ng=Object.assign({},g,{checkedOut:false,dinnerOrder:{special:'',drink:'',charge:''},breakfastOrder:{special:'',drink:'',charge:'',bfDay:''}});
+          if((ng.nights||1)>=2){
+            if((ng.dinnerType||'').indexOf('中華')!==-1)ng.dinnerType='会席';
+            if(ng.personModeAdult&&ng.personMealsAdult)ng.personMealsAdult=ng.personMealsAdult.map(function(p){return Object.assign({},p,{type:(p.type||'').indexOf('中華')!==-1?'会席':p.type});});
+          }
+          return ng;
+        });
+      }
+    }catch(e){}
+  }
+  _lastLunchCount=LUNCHES.length;
+  GUESTS.forEach(function(g){if(g.checkedOut&&CHECKOUT_ROOMS.indexOf(g.room)===-1)CHECKOUT_ROOMS.push(g.room);});
+  if(carryOver){
+    const carried=carryOverGuests(d);
+    if(carried.length>0){saveCurrentData();setTimeout(function(){showToast('連泊引き継ぎ：'+carried.map(function(r){return r+'号室';}).join('・')+' を追加しました');},300);}
+  }
+  buildGuests();if(mealTab==='lunch')buildLunchList();else if(mealTab==='betchu')buildBetchuList();else buildMeals();
+}
+
