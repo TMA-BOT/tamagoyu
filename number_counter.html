@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ナンバープレート集計</title>
+<style>
+:root{--green:#2d6a4f;--green-l:#d8f3dc;--bg:#f0f4f1;--surface:#fff;--border:#e2e8f0;--text:#1a202c;--t2:#4a5568;--t3:#a0aec0;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Hiragino Sans','Meiryo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.header{background:var(--green);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.15);}
+.header h1{font-size:16px;font-weight:700;}
+.btn-tab{padding:5px 12px;border-radius:20px;border:none;font-size:11px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;}
+.btn-tab.active{background:#fff;color:var(--green);}
+.btn-sm{padding:5px 10px;border-radius:20px;border:none;font-size:11px;cursor:pointer;background:rgba(255,255,255,.2);color:#fff;}
+.content{padding:12px;}
+.card{background:var(--surface);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.sec{font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;}
+.date-bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.date-bar input[type=date]{flex:1;padding:6px 10px;border:.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);}
+.date-bar label{font-size:11px;color:var(--t3);white-space:nowrap;}
+/* 検索バー */
+.search-bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;background:var(--bg);border:.5px solid var(--border);border-radius:10px;padding:8px 12px;}
+.search-bar input{flex:1;border:none;background:none;font-size:13px;color:var(--text);outline:none;}
+.search-bar input::placeholder{color:var(--t3);}
+.search-results{margin-bottom:10px;display:flex;flex-direction:column;gap:4px;}
+.search-result-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--green-l);border-radius:8px;cursor:pointer;}
+.search-result-item:active{background:var(--green);color:#fff;}
+.search-result-name{font-size:13px;font-weight:700;color:var(--green);}
+.search-result-pref{font-size:11px;color:var(--t2);}
+/* 都道府県グリッド */
+.pref-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:10px;}
+.pref-btn{padding:7px 2px;border-radius:8px;border:.5px solid var(--border);background:#f7fafc;font-size:11px;font-weight:600;cursor:pointer;text-align:center;}
+.pref-btn.sel{background:var(--green);color:#fff;border-color:var(--green);}
+.region-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;}
+.region-btn{padding:9px 4px;border-radius:8px;border:.5px solid var(--border);background:var(--green-l);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:.12s;}
+.region-btn:active{background:var(--green);color:#fff;}
+/* 最近追加 */
+.recent{display:flex;flex-wrap:wrap;gap:5px;min-height:28px;}
+.rtag{padding:4px 10px;border-radius:20px;background:#e8f4f8;font-size:12px;color:#2b6cb0;font-weight:600;display:flex;align-items:center;gap:4px;animation:pop .2s ease;}
+@keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+.rtag button{background:none;border:none;color:var(--t3);font-size:11px;cursor:pointer;}
+/* 集計 */
+.total-badge{background:var(--green);color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;margin-bottom:12px;display:inline-block;}
+.rank-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid #f0f4f8;animation:slideIn .3s ease backwards;}
+@keyframes slideIn{from{transform:translateX(-8px);opacity:0}to{transform:translateX(0);opacity:1}}
+.rank-item:last-child{border-bottom:none;}
+.rank-medal{font-size:16px;min-width:24px;text-align:center;}
+.rank-no{font-size:11px;color:var(--t3);min-width:22px;text-align:center;font-weight:700;}
+.rank-name{font-size:13px;font-weight:600;}
+.rank-pref{font-size:10px;color:var(--t3);margin-left:4px;}
+.rank-name-wrap{flex:1;display:flex;align-items:baseline;gap:2px;}
+.rank-bar-wrap{flex:2;background:#e2e8f0;border-radius:20px;height:10px;overflow:hidden;}
+.rank-bar{height:10px;border-radius:20px;}
+.rank-num{font-size:15px;font-weight:700;color:var(--green);min-width:32px;text-align:right;}
+.rank-del{width:22px;height:22px;border-radius:50%;border:none;background:#fee2e2;color:#e53e3e;font-size:11px;cursor:pointer;flex-shrink:0;}
+.empty{text-align:center;padding:32px;color:var(--t3);font-size:13px;}
+/* 地方別集計 */
+.region-group{margin-bottom:10px;}
+.region-group-title{font-size:11px;font-weight:700;color:var(--t2);padding:4px 8px;background:var(--bg);border-radius:6px;margin-bottom:4px;}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🚗 ナンバープレート集計</h1>
+  <div style="display:flex;gap:6px;">
+    <button class="btn-tab active" id="tab-input" onclick="showTab('input')">入力</button>
+    <button class="btn-tab" id="tab-stats" onclick="showTab('stats')">集計</button>
+    <button class="btn-sm" onclick="clearToday()">クリア</button>
+  </div>
+</div>
+
+<!-- 入力ビュー -->
+<div id="view-input" class="content">
+  <div class="card">
+    <div class="date-bar"><label>集計日：</label><input type="date" id="date-input"></div>
+
+    <!-- 地域検索バー -->
+    <div class="sec">🔍 地域名で検索</div>
+    <div class="search-bar">
+      <span style="font-size:14px;">🔍</span>
+      <input type="text" id="search-input" placeholder="例：品川、仙台、なにわ..." oninput="onSearch(this.value)">
+      <button onclick="clearSearch()" style="background:none;border:none;color:var(--t3);font-size:14px;cursor:pointer;">✕</button>
+    </div>
+    <div class="search-results" id="search-results"></div>
+
+    <!-- 都道府県選択 -->
+    <div class="sec">都道府県から選択</div>
+    <div class="pref-grid" id="pref-grid"></div>
+    <div id="region-area" style="display:none;">
+      <div style="font-size:11px;color:var(--t2);font-weight:700;margin-bottom:5px;" id="region-label"></div>
+      <div class="region-grid" id="region-grid"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="sec">最近追加（✕で取り消し）</div>
+    <div class="recent" id="recent-list"></div>
+  </div>
+</div>
+
+<!-- 集計ビュー -->
+<div id="view-stats" class="content" style="display:none;">
+  <div class="date-bar"><label>表示日：</label><input type="date" id="date-stats">
+    <button onclick="loadStats()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--green);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">更新</button>
+  </div>
+  <div class="total-badge" id="total-badge">🚗 0台</div>
+  <div class="card">
+    <div class="sec" style="margin-bottom:10px;">ランキング（地域名別）</div>
+    <div id="rank-list"><div class="empty">データがありません</div></div>
+  </div>
+</div>
+
+<script>
+const ND={
+  '北海道':['札幌','函館','旭川','室蘭','釧路','帯広','北見','岩見沢','小樽','苫小牧','知床','名寄','根室','留萌','稚内','紋別','滝川','深川','富良野','網走'],
+  '青森':['青森','弘前','八戸'],'岩手':['盛岡','岩手','平泉'],'宮城':['仙台','宮城'],'秋田':['秋田'],'山形':['山形','庄内'],
+  '福島':['福島','郡山','いわき','白河','那須'],'茨城':['水戸','土浦','つくば'],'栃木':['宇都宮','栃木','那須','日光'],
+  '群馬':['前橋','高崎','群馬'],'埼玉':['大宮','川口','春日部','熊谷','所沢','越谷','川越','草加'],
+  '千葉':['千葉','習志野','柏','市川','船橋','市原','松戸','成田','袖ケ浦'],
+  '東京':['品川','足立','練馬','多摩','八王子','世田谷','杉並','板橋','江東','葛飾','江戸川'],
+  '神奈川':['横浜','川崎','湘南','相模','横須賀'],'新潟':['新潟','長岡','上越','三条'],'富山':['富山'],
+  '石川':['金沢','石川'],'福井':['福井'],'山梨':['山梨','富士山'],
+  '長野':['長野','松本','諏訪','伊那','飯田','上田','南信州','安曇野'],'岐阜':['岐阜','飛騨'],
+  '静岡':['静岡','浜松','沼津','富士','伊豆'],'愛知':['名古屋','岡崎','豊田','豊橋','一宮','春日井','三河','尾張小牧'],
+  '三重':['三重','伊勢','四日市','伊勢志摩'],'滋賀':['滋賀'],'京都':['京都'],
+  '大阪':['大阪','なにわ','和泉','堺'],'兵庫':['神戸','姫路','尼崎','明石','西宮','播磨'],
+  '奈良':['奈良','飛鳥'],'和歌山':['和歌山'],'鳥取':['鳥取'],'島根':['島根','出雲'],'岡山':['岡山','倉敷'],
+  '広島':['広島','福山'],'山口':['山口','下関','岩国'],'徳島':['徳島'],'香川':['香川','高松'],'愛媛':['愛媛'],
+  '高知':['高知'],'福岡':['福岡','北九州','久留米','筑豊','筑後'],'佐賀':['佐賀'],'長崎':['長崎','佐世保'],
+  '熊本':['熊本'],'大分':['大分'],'宮崎':['宮崎'],'鹿児島':['鹿児島'],'沖縄':['沖縄'],
+};
+
+// 地域名→都道府県の逆引きマップ
+const R2P={};
+Object.entries(ND).forEach(([pref,regions])=>{
+  regions.forEach(r=>{ R2P[r]=pref; });
+});
+
+const PREFS=Object.keys(ND);
+let selPref=null,cData={},recent=[];
+const getDK=()=>document.getElementById('date-input').value||new Date().toISOString().slice(0,10);
+const loadS=()=>{try{const r=localStorage.getItem('nc5');if(r)cData=JSON.parse(r);}catch(e){}};
+const saveS=()=>localStorage.setItem('nc5',JSON.stringify(cData));
+
+function init(){
+  const t=new Date().toISOString().slice(0,10);
+  document.getElementById('date-input').value=t;
+  document.getElementById('date-stats').value=t;
+  loadS();renderPrefs();renderRecent();
+}
+
+// 検索
+function onSearch(q){
+  const el=document.getElementById('search-results');
+  const query=q.trim();
+  if(!query){el.innerHTML='';return;}
+  // 全地域名から部分一致検索
+  const results=[];
+  Object.entries(ND).forEach(([pref,regions])=>{
+    regions.forEach(r=>{
+      if(r.includes(query)||pref.includes(query)){
+        results.push({region:r,pref});
+      }
+    });
+  });
+  if(!results.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--t3);padding:6px 0;">見つかりませんでした</div>';
+    return;
+  }
+  el.innerHTML=results.slice(0,8).map(({region,pref})=>`
+    <div class="search-result-item" onclick="addR('${region}','${pref}')">
+      <div>
+        <div class="search-result-name">${region}</div>
+        <div class="search-result-pref">${pref}</div>
+      </div>
+      <div style="font-size:18px;color:var(--green);">＋</div>
+    </div>`).join('');
+}
+
+function clearSearch(){
+  document.getElementById('search-input').value='';
+  document.getElementById('search-results').innerHTML='';
+}
+
+// 都道府県グリッド
+function renderPrefs(){
+  document.getElementById('pref-grid').innerHTML=PREFS.map(p=>
+    `<button class="pref-btn${selPref===p?' sel':''}" onclick="selP('${p}')">${p}</button>`).join('');
+}
+
+function selP(p){
+  selPref=p;renderPrefs();
+  document.getElementById('region-label').textContent=p+' のナンバー';
+  document.getElementById('region-grid').innerHTML=(ND[p]||[]).map(r=>
+    `<button class="region-btn" onclick="addR('${r}','${p}')">${r}</button>`).join('');
+  document.getElementById('region-area').style.display='';
+}
+
+function addR(r,pref){
+  const dk=getDK();
+  if(!cData[dk])cData[dk]={};
+  cData[dk][r]=(cData[dk][r]||0)+1;saveS();
+  recent.unshift({r,pref:pref||R2P[r]||''});
+  if(recent.length>15)recent.pop();
+  renderRecent();
+  // 検索結果のフラッシュ
+  document.querySelectorAll('.search-result-item').forEach(b=>{
+    if(b.querySelector('.search-result-name')?.textContent===r){
+      b.style.background='var(--green)';
+      setTimeout(()=>{b.style.background='';},250);
+    }
+  });
+  // ボタンフラッシュ
+  document.querySelectorAll('.region-btn').forEach(b=>{
+    if(b.textContent===r){b.style.background='#2d6a4f';b.style.color='#fff';
+      setTimeout(()=>{b.style.background='';b.style.color='';},250);}
+  });
+  showToast(r+' を追加しました');
+}
+
+function remRecent(i){
+  const item=recent[i];if(!item)return;
+  const dk=getDK();
+  if(cData[dk]?.[item.r]>0){cData[dk][item.r]--;if(!cData[dk][item.r])delete cData[dk][item.r];saveS();}
+  recent.splice(i,1);renderRecent();
+}
+
+function renderRecent(){
+  const el=document.getElementById('recent-list');
+  if(!recent.length){el.innerHTML='<span style="color:#a0aec0;font-size:12px;">まだありません</span>';return;}
+  el.innerHTML=recent.slice(0,12).map((r,i)=>
+    `<div class="rtag">${r.r}<span style="font-size:10px;color:var(--t3);margin-left:2px;">(${r.pref})</span><button onclick="remRecent(${i})">✕</button></div>`).join('');
+}
+
+function showTab(tab){
+  document.getElementById('view-input').style.display=tab==='input'?'':'none';
+  document.getElementById('view-stats').style.display=tab==='stats'?'':'none';
+  document.getElementById('tab-input').className='btn-tab'+(tab==='input'?' active':'');
+  document.getElementById('tab-stats').className='btn-tab'+(tab==='stats'?' active':'');
+  if(tab==='stats')loadStats();
+}
+
+function loadStats(){
+  const dk=document.getElementById('date-stats').value;
+  const data=cData[dk]||{};
+  const total=Object.values(data).reduce((s,v)=>s+v,0);
+  document.getElementById('total-badge').textContent='🚗 合計 '+total+' 台';
+  const entries=Object.entries(data).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length){document.getElementById('rank-list').innerHTML='<div class="empty">データがありません</div>';return;}
+  const mx=entries[0][1];
+  const medals=['🥇','🥈','🥉'];
+  const bc=['#1b5e20','#2e7d32','#388e3c','#4caf50','#81c784'];
+  document.getElementById('rank-list').innerHTML=entries.map(([n,c],i)=>`
+    <div class="rank-item" style="animation-delay:${i*0.03}s">
+      <div class="rank-medal">${medals[i]||''}</div>
+      <div class="rank-no">${i>=3?i+1:''}</div>
+      <div class="rank-name-wrap">
+        <span class="rank-name">${n}</span>
+        <span class="rank-pref">${R2P[n]||''}</span>
+      </div>
+      <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.round(c/mx*100)}%;background:${bc[Math.min(i,4)]}"></div></div>
+      <div class="rank-num">${c}</div>
+      <button class="rank-del" onclick="delR('${n}','${dk}')">✕</button>
+    </div>`).join('');
+}
+
+function delR(n,dk){if(cData[dk])delete cData[dk][n];saveS();loadStats();}
+
+function clearToday(){
+  const dk=getDK();
+  if(!confirm(dk+' のデータをクリアしますか？'))return;
+  delete cData[dk];saveS();recent=[];renderRecent();
+  if(document.getElementById('view-stats').style.display!=='none')loadStats();
+  showToast('クリアしました');
+}
+
+function showToast(msg){
+  const t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a202c;color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;z-index:999;max-width:90vw;text-align:center;';
+  t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2000);
+}
+
+init();
+</script>
+</body>
+</html>
