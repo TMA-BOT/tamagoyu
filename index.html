@@ -3420,10 +3420,15 @@ function buildLunchList(){
     return;
   }
   let totalPax=0;
-  const totalCharge=LUNCHES.reduce(function(a,l){return a+(parseInt(l.charge)||0);},0);
+  // 部屋付けを除いた通常集計
+  const totalCharge=LUNCHES.reduce(function(a,l){
+    const fs=l.frontStatus||(l.frontPaid!==false?'paid':'unpaid');
+    return fs==='room'?a:a+(parseInt(l.charge)||0);
+  },0);
   let gridHtml='<div class="meal-grid">';
   LUNCHES.forEach(function(lu,i){
-    totalPax+=lu.pax||0;
+    const _fs=lu.frontStatus||(lu.frontPaid!==false?'paid':'unpaid');
+    if(_fs!=='room') totalPax+=lu.pax||0;
     const charge=parseInt(lu.charge)||0;
     const allItems=[];
     const venueItems=[];
@@ -3501,7 +3506,7 @@ function buildLunchList(){
       +'</div>';
   });
   gridHtml+='</div>';
-  gridHtml+='<div style="text-align:right;font-size:12px;color:var(--t3);padding:8px 4px;">合計 '+totalPax+'名 ／ ¥'+totalCharge.toLocaleString()+'</div>';
+  gridHtml+='<div style="text-align:right;font-size:12px;color:var(--t3);padding:8px 4px;">合計 '+totalPax+'名 ／ ¥'+totalCharge.toLocaleString()+'<span style="font-size:10px;color:var(--blue);margin-left:4px;">（🏠部屋付け除く）</span></div>';
 
   // ===== 集計 =====
   // 注文行ごとにリスト化（同じメニューでも別行）
@@ -3509,6 +3514,9 @@ function buildLunchList(){
   const drinkLines=[];
   let totalDrinkCharge=0,totalFoodCharge=0;
   LUNCHES.forEach(function(lu){
+    // 部屋付けは通常集計から除外
+    const _luFs=lu.frontStatus||(lu.frontPaid!==false?'paid':'unpaid');
+    if(_luFs==='room') return;
     (lu.foodItems||[]).forEach(function(f){
       if(!f.name)return;
       const oQty=f.omakaseQty||0;
@@ -3558,7 +3566,7 @@ function buildLunchList(){
     +'<button onclick="toggleSummary()" style="width:100%;background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;">'
     +'<div style="display:flex;align-items:center;gap:8px;">'
     +'<span style="font-size:13px;font-weight:700;color:var(--text);">📊 本日の集計</span>'
-    +'<span style="font-size:11px;color:var(--t3);">'+totalPax+'名 ／ ¥'+totalCharge.toLocaleString()+'</span>'
+    +'<span style="font-size:11px;color:var(--t3);">'+totalPax+'名 ／ ¥'+totalCharge.toLocaleString()+' <span style="color:var(--blue);">🏠除く</span></span>'
     +'</div>'
     +'<span id="summary-arrow" style="font-size:14px;color:var(--t3);">▼</span>'
     +'</button>'
@@ -3568,18 +3576,18 @@ function buildLunchList(){
     +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">'
     +'<div style="background:var(--surface2);border-radius:var(--r);padding:10px;text-align:center;">'
     +'<div style="font-size:20px;font-weight:700;color:var(--green);">'+totalPax+'</div>'
-    +'<div style="font-size:10px;color:var(--t3);">総人数</div></div>'
+    +'<div style="font-size:10px;color:var(--t3);">総人数<br><span style="font-size:9px;color:var(--blue);">🏠除く</span></div></div>'
     +'<div style="background:var(--surface2);border-radius:var(--r);padding:10px;text-align:center;">'
-    +'<div style="font-size:20px;font-weight:700;color:var(--green);">'+LUNCHES.length+'</div>'
-    +'<div style="font-size:10px;color:var(--t3);">伝票数</div></div>'
+    +'<div style="font-size:20px;font-weight:700;color:var(--green);">'+LUNCHES.filter(function(l){const f=l.frontStatus||(l.frontPaid!==false?'paid':'unpaid');return f!=='room';}).length+'</div>'
+    +'<div style="font-size:10px;color:var(--t3);">伝票数<br><span style="font-size:9px;color:var(--blue);">🏠除く</span></div></div>'
     +'<div style="background:var(--surface2);border-radius:var(--r);padding:10px;text-align:center;">'
     +'<div style="font-size:18px;font-weight:700;color:var(--green);">¥'+totalCharge.toLocaleString()+'</div>'
-    +'<div style="font-size:10px;color:var(--t3);">総売上</div></div>'
+    +'<div style="font-size:10px;color:var(--t3);">総売上<br><span style="font-size:9px;color:var(--blue);">🏠除く</span></div></div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">'
     +'<div style="background:var(--green-l);border-radius:var(--r);padding:8px 10px;">'
     +'<div style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:4px;">✓ ランチ代 会計済</div>'
-    +'<div style="font-size:16px;font-weight:700;color:var(--green);">'+LUNCHES.filter(function(l){return l.frontPaid!==false;}).length+'件</div>'
+    +'<div style="font-size:16px;font-weight:700;color:var(--green);">'+LUNCHES.filter(function(l){const f=l.frontStatus||(l.frontPaid!==false?'paid':'unpaid');return f==='paid';}).length+'件</div>'
     +'</div>'
     +'<div style="background:var(--red-l);border-radius:var(--r);padding:8px 10px;">'
     +'<div style="font-size:10px;color:var(--red);font-weight:600;margin-bottom:4px;">✓ 会場追加分 精算済</div>'
