@@ -3664,7 +3664,55 @@ function buildLunchList(){
   } else {
     summaryHtml+='<div style="text-align:center;color:var(--t3);font-size:12px;padding:8px;">注文データがありません</div>';
   }
-  summaryHtml+='</div></div></div>';
+
+  // ===== 部屋付け一覧 =====
+  const roomLunches=LUNCHES.filter(function(l){
+    const fs=l.frontStatus||(l.frontPaid!==false?'paid':'unpaid');
+    return fs==='room';
+  });
+  // 部屋付け一覧HTML（メニュー別リストの外に追加）
+  let roomSectionHtml='';
+  if(roomLunches.length>0){
+    let roomTotal=0;
+    roomLunches.forEach(function(l){roomTotal+=l.charge||0;});
+    roomSectionHtml='<div style="margin-top:12px;padding:12px;background:var(--blue-l);border-radius:10px;border:1.5px solid var(--blue);">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span>🏠 部屋付け一覧</span>'
+      +'<span>合計 ¥'+roomTotal.toLocaleString()+'</span>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px;">';
+    roomLunches.forEach(function(l){
+      const roomLabel=l.roomNo?l.roomNo+'号室':'部屋番号不明';
+      // メニュー内容をまとめる
+      const menuParts=[];
+      (l.foodItems||[]).forEach(function(f){
+        if(!f.name)return;
+        const label=f.name;
+        const q=f.qty||1;
+        const oq=f.omakaseQty||0;
+        const normalQ=q-oq;
+        if(normalQ>0)menuParts.push(label+(normalQ>1?' ×'+normalQ:''));
+        if(oq>0)menuParts.push(label+'（大盛）'+(oq>1?' ×'+oq:''));
+        if(f.nigiriQty>0)menuParts.push('日替わりおにぎり ×'+f.nigiriQty);
+      });
+      (l.drinkItems||[]).forEach(function(d){
+        if(!d.name)return;
+        const q=d.qty||1;
+        menuParts.push(d.name+(q>1?' ×'+q:''));
+      });
+      const menuStr=menuParts.length>0?menuParts.join('、'):'（メニューなし）';
+      roomSectionHtml+='<div style="background:#fff;border-radius:8px;padding:8px 10px;">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">'
+        +'<span style="font-size:13px;font-weight:700;color:var(--blue);">🏠 '+escHtml(roomLabel)+'</span>'
+        +'<span style="font-size:13px;font-weight:700;color:var(--text);">¥'+(l.charge||0).toLocaleString()+'</span>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--t2);">'+escHtml(menuStr)+'</div>'
+        +'</div>';
+    });
+    roomSectionHtml+='</div></div>';
+  }
+
+  summaryHtml+='</div>'+roomSectionHtml+'</div></div>';
   const addBtnHtml=canEdit()?'<button class="add-guest-btn" onclick="openLunchModal(null)" style="margin-top:4px;">＋ ランチを追加</button>':'';
   const menuMgmtBtn='<div style="text-align:right;margin-top:12px;padding-top:10px;border-top:.5px solid var(--border);">'
     +'<button onclick="openMenuManager()" style="font-size:10px;padding:3px 10px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t3);cursor:pointer;">⚙ メニュー管理</button>'
