@@ -3422,12 +3422,12 @@ function buildLunchList(){
   let totalPax=0;
   // 部屋付けを除いた通常集計
   const totalCharge=LUNCHES.reduce(function(a,l){
-    const fs=l.frontStatus||(l.frontPaid!==false?'paid':'unpaid');
+    const fs=l.frontStatus||(l.roomNo?'room':(l.frontPaid!==false?'paid':'unpaid'));
     return fs==='room'?a:a+(parseInt(l.charge)||0);
   },0);
   let gridHtml='<div class="meal-grid">';
   LUNCHES.forEach(function(lu,i){
-    const _fs=lu.frontStatus||(lu.frontPaid!==false?'paid':'unpaid');
+    const _fs=lu.frontStatus||(lu.roomNo?'room':(lu.frontPaid!==false?'paid':'unpaid'));
     if(_fs!=='room') totalPax+=lu.pax||0;
     const charge=parseInt(lu.charge)||0;
     const allItems=[];
@@ -3460,7 +3460,7 @@ function buildLunchList(){
         venueCharge+=p;
       }
     });
-    const frontStatus=lu.frontStatus||(lu.frontPaid!==false?'paid':'unpaid');
+    const frontStatus=lu.frontStatus||(lu.roomNo?'room':(lu.frontPaid!==false?'paid':'unpaid'));
     const frontPaid=frontStatus==='paid';
     const isRoom=frontStatus==='room';
     const venuePaid=lu.venuePaid||false;
@@ -3515,7 +3515,7 @@ function buildLunchList(){
   let totalDrinkCharge=0,totalFoodCharge=0;
   LUNCHES.forEach(function(lu){
     // 部屋付けは通常集計から除外
-    const _luFs=lu.frontStatus||(lu.frontPaid!==false?'paid':'unpaid');
+    const _luFs=lu.frontStatus||(lu.roomNo?'room':(lu.frontPaid!==false?'paid':'unpaid'));
     if(_luFs==='room') return;
     (lu.foodItems||[]).forEach(function(f){
       if(!f.name)return;
@@ -3578,7 +3578,7 @@ function buildLunchList(){
     +'<div style="font-size:20px;font-weight:700;color:var(--green);">'+totalPax+'</div>'
     +'<div style="font-size:10px;color:var(--t3);">総人数<br><span style="font-size:9px;color:var(--blue);">🏠除く</span></div></div>'
     +'<div style="background:var(--surface2);border-radius:var(--r);padding:10px;text-align:center;">'
-    +'<div style="font-size:20px;font-weight:700;color:var(--green);">'+LUNCHES.filter(function(l){const f=l.frontStatus||(l.frontPaid!==false?'paid':'unpaid');return f!=='room';}).length+'</div>'
+    +'<div style="font-size:20px;font-weight:700;color:var(--green);">'+LUNCHES.filter(function(l){const f=l.frontStatus||(l.roomNo?'room':(l.frontPaid!==false?'paid':'unpaid'));return f!=='room';}).length+'</div>'
     +'<div style="font-size:10px;color:var(--t3);">伝票数<br><span style="font-size:9px;color:var(--blue);">🏠除く</span></div></div>'
     +'<div style="background:var(--surface2);border-radius:var(--r);padding:10px;text-align:center;">'
     +'<div style="font-size:18px;font-weight:700;color:var(--green);">¥'+totalCharge.toLocaleString()+'</div>'
@@ -3587,7 +3587,7 @@ function buildLunchList(){
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">'
     +'<div style="background:var(--green-l);border-radius:var(--r);padding:8px 10px;">'
     +'<div style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:4px;">✓ ランチ代 会計済</div>'
-    +'<div style="font-size:16px;font-weight:700;color:var(--green);">'+LUNCHES.filter(function(l){const f=l.frontStatus||(l.frontPaid!==false?'paid':'unpaid');return f==='paid';}).length+'件</div>'
+    +'<div style="font-size:16px;font-weight:700;color:var(--green);">'+LUNCHES.filter(function(l){const f=l.frontStatus||(l.roomNo?'room':(l.frontPaid!==false?'paid':'unpaid'));return f==='paid';}).length+'件</div>'
     +'</div>'
     +'<div style="background:var(--red-l);border-radius:var(--r);padding:8px 10px;">'
     +'<div style="font-size:10px;color:var(--red);font-weight:600;margin-bottom:4px;">✓ 会場追加分 精算済</div>'
@@ -3675,7 +3675,7 @@ function buildLunchList(){
 
   // ===== 部屋付け一覧 =====
   const roomLunches=LUNCHES.filter(function(l){
-    const fs=l.frontStatus||(l.frontPaid!==false?'paid':'unpaid');
+    const fs=l.frontStatus||(l.roomNo?'room':(l.frontPaid!==false?'paid':'unpaid'));
     return fs==='room';
   });
   // 部屋付け一覧HTML（メニュー別リストの外に追加）
@@ -4007,7 +4007,7 @@ function openLunchModal(idx){
     });
     if(curRoom)roomSel.value=curRoom;
   }
-  setFrontStatus(lu.frontStatus||( lu.frontPaid!==false?'paid':'unpaid'));
+  setFrontStatus(lu.frontStatus||(lu.roomNo?'room':(lu.frontPaid!==false?'paid':'unpaid')));
   if(lu.roomNo)document.getElementById('lm-room-no').value=lu.roomNo;
   setVenuePaid(lu.venuePaid||false);
   renderLunchItems('lm-food-items',lu.foodItems||[],'food');
