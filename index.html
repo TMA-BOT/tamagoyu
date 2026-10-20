@@ -8470,44 +8470,42 @@ function _buildOshiHtml(forPrint){
 
   function makeShortaku(pw){
     var ff='\'游明朝\',\'Yu Mincho\',\'HGS明朝E\',serif';
-    var h=pw?'115mm':'170px';
-    var pad=pw?'6mm':'8px';
+    var h=pw?'128mm':'170px';
+    var pad=pw?'8mm':'8px';
 
     // タイトル「御献立」
     var titleHtml='<div style="'
       +'writing-mode:vertical-rl;direction:ltr;'
-      +'font-size:'+(pw?'16px':'13px')+';font-weight:700;color:'+d.accent+';letter-spacing:4px;'
-      +'padding:0 '+(pw?'10px':'8px')+';'
+      +'font-size:'+(pw?'26px':'13px')+';font-weight:700;color:'+d.accent+';letter-spacing:6px;'
+      +'padding:0 '+(pw?'14px':'8px')+';'
       +'border-left:2px solid '+d.border+';'
       +'flex-shrink:0;white-space:nowrap;'
       +'">'+escHtml(_oshiEditData.title)+'</div>';
 
-    // 各コース：ジャンル名を上に、内容をその下に続ける
-    // writing-mode:vertical-rl の div の中にテキストを流すだけ→自然に上から下へ
     var coursesHtml='';
     _oshiEditData.courses.forEach(function(c){
       var contentText=c.content.replace(/\n/g,'　');
       coursesHtml+='<div style="'
         +'writing-mode:vertical-rl;direction:ltr;'
-        +'padding:0 '+(pw?'5px':'3px')+';'
+        +'padding:0 '+(pw?'8px':'3px')+';'
         +'border-left:1px solid '+d.border+'44;'
         +'flex-shrink:0;'
         +'font-family:'+ff+';'
         +'">'
-        +'<div style="font-size:'+(pw?'9px':'7.5px')+';font-weight:700;color:'+d.accent+';white-space:nowrap;letter-spacing:1px;border-bottom:1px solid '+d.border+'66;padding-bottom:2px;margin-bottom:3px;">'+escHtml(c.name)+'</div>'
-        +'<div style="font-size:'+(pw?'8px':'7px')+';color:#333;white-space:nowrap;line-height:1.7;">'+escHtml(contentText)+'</div>'
+        +'<div style="font-size:'+(pw?'14px':'7.5px')+';font-weight:700;color:'+d.accent+';white-space:nowrap;letter-spacing:2px;border-bottom:1px solid '+d.border+'66;padding-bottom:3px;margin-bottom:4px;">'+escHtml(c.name)+'</div>'
+        +'<div style="font-size:'+(pw?'12px':'7px')+';color:#333;white-space:nowrap;line-height:1.8;">'+escHtml(contentText)+'</div>'
         +'</div>';
     });
 
     // 備考・料理長
     var noteHtml='<div style="'
       +'writing-mode:vertical-rl;direction:ltr;'
-      +'font-size:'+(pw?'7px':'6px')+';color:#666;'
-      +'padding:0 '+(pw?'3px':'2px')+';'
+      +'font-size:'+(pw?'10px':'6px')+';color:#666;'
+      +'padding:0 '+(pw?'6px':'2px')+';'
       +'flex-shrink:0;white-space:nowrap;'
       +'">'
       +'<div>'+escHtml(_oshiEditData.note.replace(/\n/g,'　'))+'</div>'
-      +'<div style="color:'+d.accent+';font-weight:700;margin-top:3px;">'+escHtml(_oshiEditData.chef)+'　吉日</div>'
+      +'<div style="color:'+d.accent+';font-weight:700;margin-top:4px;">'+escHtml(_oshiEditData.chef)+'　吉日</div>'
       +'</div>';
 
     return '<div style="'
