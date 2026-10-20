@@ -8470,7 +8470,7 @@ function _buildOshiHtml(forPrint){
 
   function makeShortaku(pw){
     var ff='\'游明朝\',\'Yu Mincho\',\'HGS明朝E\',serif';
-    var h=pw?'128mm':'170px';
+    var h=pw?'140mm':'170px';
     var pad=pw?'8mm':'8px';
 
     // タイトル「御献立」
@@ -8493,7 +8493,7 @@ function _buildOshiHtml(forPrint){
         +'font-family:'+ff+';'
         +'">'
         +'<div style="font-size:'+(pw?'14px':'7.5px')+';font-weight:700;color:'+d.accent+';white-space:nowrap;letter-spacing:2px;border-bottom:1px solid '+d.border+'66;padding-bottom:3px;margin-bottom:4px;">'+escHtml(c.name)+'</div>'
-        +'<div style="font-size:'+(pw?'12px':'7px')+';color:#333;white-space:nowrap;line-height:1.8;">'+escHtml(contentText)+'</div>'
+        +'<div style="font-size:'+(pw?'12px':'7px')+';color:#333;line-height:1.8;">'+escHtml(contentText)+'</div>'
         +'</div>';
     });
 
@@ -8522,7 +8522,7 @@ function _buildOshiHtml(forPrint){
   if(forPrint){
     var s=makeShortaku(true);
     return '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-      +'<style>@page{size:A4 landscape;margin:10mm;}body{margin:0;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;height:190mm;gap:8mm;}*{box-sizing:border-box;}</style>'
+      +'<style>@page{size:A4 landscape;margin:10mm;}body{margin:0;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;height:190mm;gap:4mm;}*{box-sizing:border-box;}</style>'
       +'</head><body>'+s+s+'</body></html>';
   }else{
     return '<div style="padding:8px;">'+makeShortaku(false)+'</div>';
