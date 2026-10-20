@@ -8484,8 +8484,9 @@ function _buildOshiHtml(forPrint){
         +'padding:0 '+(pw?3:2)+'px;'
         +'border-left:1px solid '+d.border+'55;'
         +'flex-shrink:0;'
+        +'display:flex;align-items:flex-start;'   // 縦書きflexで内容を上端に寄せる
         +'">'
-        +'<table style="border-collapse:collapse;table-layout:fixed;">'
+        +'<table style="border-collapse:collapse;table-layout:fixed;vertical-align:top;">'
         +'<tbody>'+rows+'</tbody>'
         +'</table>'
         +'</div>';
@@ -8509,7 +8510,7 @@ function _buildOshiHtml(forPrint){
       +'background:'+d.bg+';border:2px solid '+d.border+';'
       +'width:'+w+';height:'+h+';'
       +'padding:'+(pw?7:8)+'px;box-sizing:border-box;'
-      +'display:flex;flex-direction:row;align-items:flex-start;'
+      +'display:flex;flex-direction:row;align-items:stretch;'
       +'direction:rtl;'   // 右→左に並べる
       +'overflow:hidden;'
       +'font-family:\'游明朝\',\'Yu Mincho\',\'HGS明朝E\',serif;'
