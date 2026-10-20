@@ -8466,7 +8466,7 @@ function _buildOshiHtml(forPrint){
     var titleHtml='<div style="'
       +'writing-mode:vertical-rl;'
       +'font-size:'+(pw?'16px':'13px')+';font-weight:700;color:'+d.accent+';letter-spacing:4px;'
-      +'padding:0 '+(pw?'6px':'5px')+';'
+      +'padding:0 '+(pw?'10px':'8px')+';'
       +'border-left:2px solid '+d.border+';'
       +'flex-shrink:0;white-space:nowrap;'
       +'">'+escHtml(_oshiEditData.title)+'</div>';
@@ -8506,7 +8506,7 @@ function _buildOshiHtml(forPrint){
       +'width:'+(pw?'190mm':'100%')+';height:'+h+';'
       +'padding:'+pad+';box-sizing:border-box;'
       +'display:flex;flex-direction:row;direction:rtl;'
-      +'align-items:flex-start;justify-content:space-between;'
+      +'align-items:flex-start;gap:'+(pw?'2mm':'4px')+';'
       +'overflow:hidden;'
       +'font-family:'+ff+';'
       +'">'+titleHtml+coursesHtml+noteHtml+'</div>';
