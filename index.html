@@ -9155,6 +9155,7 @@ var SHIFT_CODES={
 var SHIFT_CODE_KEYS=['A','B','C','D','E','F','G','H','I','夜','休','有','講','〇',''];
 
 // 祝日データ（2025〜2027年）
+// 祝日データ（フォールバック用・APIが取れない場合に使用）
 var SHIFT_HOLIDAYS={
   '2025-1-1':'元日','2025-1-13':'成人の日','2025-2-11':'建国記念の日','2025-2-23':'天皇誕生日',
   '2025-3-20':'春分の日','2025-4-29':'昭和の日','2025-5-3':'憲法記念日','2025-5-4':'みどりの日',
@@ -9171,6 +9172,39 @@ var SHIFT_HOLIDAYS={
   '2027-5-5':'こどもの日','2027-7-19':'海の日','2027-8-11':'山の日','2027-9-20':'敬老の日',
   '2027-9-23':'秋分の日','2027-10-11':'スポーツの日','2027-11-3':'文化の日','2027-11-23':'勤労感謝の日',
 };
+// APIから祝日を取得してキャッシュ（初回のみ・以降はlocalStorage利用）
+(function(){
+  var CACHE_KEY='_holidayCache';
+  var CACHE_DAY=7; // 7日ごとに再取得
+  try{
+    var cached=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
+    var now=Date.now();
+    if(cached&&cached.ts&&(now-cached.ts)<CACHE_DAY*86400*1000&&cached.data){
+      // キャッシュが有効：マージ
+      Object.assign(SHIFT_HOLIDAYS,cached.data);
+      return;
+    }
+  }catch(e){}
+  // APIから取得（内閣府CSV準拠の祝日API）
+  fetch('https://holidays-jp.github.io/api/v1/date.json')
+    .then(function(r){return r.json();})
+    .then(function(json){
+      // json形式: {"2025-01-01":"元日", ...}
+      var converted={};
+      Object.keys(json).forEach(function(k){
+        // "2025-01-01" → "2025-1-1" 形式に変換
+        var parts=k.split('-');
+        var key=parseInt(parts[0])+'-'+parseInt(parts[1])+'-'+parseInt(parts[2]);
+        converted[key]=json[k];
+      });
+      Object.assign(SHIFT_HOLIDAYS,converted);
+      try{
+        localStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:converted}));
+      }catch(e){}
+    })
+    .catch(function(){/* オフライン時はフォールバックデータを使用 */});
+})();
+
 function _getHoliday(year,month,day){
   return SHIFT_HOLIDAYS[year+'-'+month+'-'+day]||'';
 }
