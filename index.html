@@ -8543,23 +8543,20 @@ function _oshiOpenModal(){
   const modal=document.getElementById('oshi-modal');
   const content=document.getElementById('oshi-modal-content');
   if(!modal||!content)return;
-  const isPC=window.innerWidth>=900;
-  if(isPC){
-    // PCは印刷サイズ（190mm幅）をそのまま大きく表示
-    const inner=_buildOshiHtml(true);
-    // 印刷用HTMLから<body>内だけ抽出してiframeに表示
-    content.innerHTML='<div style="overflow-x:auto;padding:8px;">'
-      +'<iframe id="oshi-modal-iframe" style="border:none;width:230mm;height:160mm;display:block;" srcdoc=""></iframe>'
-      +'</div>';
-    const iframe=document.getElementById('oshi-modal-iframe');
-    iframe.addEventListener('load',function(){},false);
-    iframe.srcdoc=inner;
-  }else{
-    // スマホ・タブレットは画面幅に合わせて横スクロール
-    const vw=window.innerWidth-48;
-    const inner=_buildOshiHtml(false);
-    content.innerHTML='<div style="width:'+vw+'px;overflow-x:auto;">'+inner+'</div>';
-  }
+  // 印刷用HTML（2枚並び）をiframeで表示
+  const printHtml=_buildOshiHtml(true);
+  // A4縦（297mm×210mm）をビューポートに収まるようscale
+  const maxW=Math.min(window.innerWidth-48, 900);
+  const scale=maxW/(210*3.7795); // 210mm→px
+  const iframeW=Math.round(210*3.7795);
+  const iframeH=Math.round(297*3.7795);
+  content.innerHTML='<div style="overflow:hidden;">'
+    +'<div style="transform:scale('+scale.toFixed(3)+');transform-origin:top left;width:'+iframeW+'px;height:'+iframeH+'px;">'
+    +'<iframe id="oshi-modal-iframe" style="border:none;width:'+iframeW+'px;height:'+iframeH+'px;display:block;" srcdoc=""></iframe>'
+    +'</div>'
+    +'<div style="height:'+Math.round(iframeH*scale)+'px;"></div>'
+    +'</div>';
+  document.getElementById('oshi-modal-iframe').srcdoc=printHtml;
   modal.style.display='flex';
   document.body.style.overflow='hidden';
 }
