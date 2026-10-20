@@ -8456,67 +8456,61 @@ function _renderOshiEdit(){
 
 function _buildOshiHtml(forPrint){
   const d=OSHI_DESIGNS[_oshiCurrentDesign];
-  // 短冊1枚分のHTML
-  // レイアウト：A4横向き上半分 = 短冊（横210mm × 縦148mm）
-  // 全体が writing-mode:vertical-rl で右→左にコースが流れる
-  function makeShortaku(){
-    // タイトル（御献立）
+  // 短冊1枚：A4縦の上半分サイズ（横190mm×縦130mm）
+  // writing-mode:vertical-rl + direction:rtl で右→左にコースが流れる
+  function makeShortaku(pw){
+    var fs=pw?9:7.5; // フォントサイズ基準
+    // タイトル
     var titleHtml='<div style="'
-      +'writing-mode:vertical-rl;'
-      +'font-size:'+(forPrint?'18':'13')+'px;'
-      +'font-weight:700;'
-      +'color:'+d.accent+';'
-      +'letter-spacing:6px;'
-      +'padding:'+(forPrint?'0 6mm':'0 6px')+';'
-      +'border-right:2px solid '+d.border+';'
-      +'margin-right:'+(forPrint?'4mm':'4px')+';'
+      +'writing-mode:vertical-rl;text-orientation:mixed;'
+      +'font-size:'+(fs*1.8)+'px;font-weight:700;color:'+d.accent+';letter-spacing:4px;'
+      +'padding:0 '+(pw?5:4)+'px;'
+      +'border-left:2px solid '+d.border+';'  // rtlなので左がタイトル側
+      +'white-space:nowrap;flex-shrink:0;'
       +'">'+escHtml(_oshiEditData.title)+'</div>';
 
-    // 各コース
+    // 各コース（direction:rtlで右から並ぶ）
     var coursesHtml='';
     _oshiEditData.courses.forEach(function(c){
       var contentVert=c.content.replace(/\n/g,'　');
       coursesHtml+='<div style="'
-        +'writing-mode:vertical-rl;'
-        +'padding:'+(forPrint?'0 3mm':'0 4px')+';'
-        +'border-right:1px solid '+d.border+'44;'
-        +'display:flex;flex-direction:column;'
+        +'writing-mode:vertical-rl;text-orientation:mixed;'
+        +'padding:0 '+(pw?3:2)+'px;'
+        +'border-left:1px solid '+d.border+'55;'
+        +'flex-shrink:0;'
         +'">'
-        +'<div style="font-size:'+(forPrint?'10':'8')+'px;font-weight:700;color:'+d.accent+';letter-spacing:2px;margin-bottom:'+(forPrint?'2mm':'3px')+';">'+escHtml(c.name)+'</div>'
-        +'<div style="font-size:'+(forPrint?'9':'7.5')+'px;color:#333;line-height:1.8;flex:1;">'+escHtml(contentVert)+'</div>'
+        +'<div style="font-size:'+fs+'px;font-weight:700;color:'+d.accent+';letter-spacing:1px;margin-bottom:'+(pw?4:2)+'px;">'+escHtml(c.name)+'</div>'
+        +'<div style="font-size:'+(fs*0.9)+'px;color:#333;line-height:1.8;">'+escHtml(contentVert)+'</div>'
         +'</div>';
     });
 
-    // 備考・料理長（左端）
+    // 備考・料理長（rtlなので右端＝左端に来る）
     var noteLines=_oshiEditData.note.split('\n').map(function(l){return escHtml(l);}).join('　');
     var noteHtml='<div style="'
-      +'writing-mode:vertical-rl;'
-      +'font-size:'+(forPrint?'7':'6')+'px;'
-      +'color:#666;'
-      +'line-height:1.6;'
-      +'padding:'+(forPrint?'0 3mm':'0 4px')+';'
-      +'margin-left:auto;'
-      +'display:flex;flex-direction:column;gap:'+(forPrint?'2mm':'3px')+';'
+      +'writing-mode:vertical-rl;text-orientation:mixed;'
+      +'font-size:'+(fs*0.75)+'px;color:#666;line-height:1.6;'
+      +'padding:0 '+(pw?3:2)+'px;'
+      +'margin-right:auto;flex-shrink:0;'
       +'">'
       +'<div>'+noteLines+'</div>'
-      +'<div style="color:'+d.accent+';font-weight:700;">'+escHtml(_oshiEditData.chef)+'　吉日</div>'
+      +'<div style="color:'+d.accent+';font-weight:700;margin-top:'+(pw?4:2)+'px;">'+escHtml(_oshiEditData.chef)+'　吉日</div>'
       +'</div>';
 
+    var w=pw?'190mm':'100%';
+    var h=pw?'130mm':'160px';
     return '<div style="'
-      +'background:'+d.bg+';'
-      +'border:2px solid '+d.border+';'
-      +'width:'+(forPrint?'190mm':'520px')+';'
-      +'height:'+(forPrint?'130mm':'178px')+';'
-      +'padding:'+(forPrint?'8mm':'10px')+';'
-      +'box-sizing:border-box;'
-      +'display:flex;'
-      +'flex-direction:row;'
+      +'background:'+d.bg+';border:2px solid '+d.border+';'
+      +'width:'+w+';height:'+h+';'
+      +'padding:'+(pw?7:8)+'px;box-sizing:border-box;'
+      +'display:flex;flex-direction:row;'
+      +'direction:rtl;'   // 右→左に並べる
       +'overflow:hidden;'
       +'font-family:\'游明朝\',\'Yu Mincho\',\'HGS明朝E\',serif;'
       +'">'+titleHtml+coursesHtml+noteHtml+'</div>';
   }
-  const s=makeShortaku();
+
   if(forPrint){
+    var s=makeShortaku(true);
     return '<!DOCTYPE html><html><head><meta charset="UTF-8">'
       +'<style>'
       +'@page{size:A4 portrait;margin:10mm;}'
@@ -8526,7 +8520,9 @@ function _buildOshiHtml(forPrint){
       +s+s
       +'</body></html>';
   }else{
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px;overflow-x:auto;">'+s+s+'</div>';
+    // プレビュー：1枚だけ表示、コンテナ幅に合わせてスケール
+    var s=makeShortaku(false);
+    return '<div style="padding:8px;">'+s+'</div>';
   }
 }
 
