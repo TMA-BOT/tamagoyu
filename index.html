@@ -138,6 +138,18 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
 .meal-tabs{display:flex;gap:8px;margin-bottom:14px;align-items:center;}
 .meal-tab-btn{padding:7px 16px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:13px;color:var(--t2);cursor:pointer;}
 .meal-tab-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+.oshi-type-btn{padding:7px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:13px;color:var(--t2);cursor:pointer;}
+.oshi-type-btn.active{background:var(--amber,#d97706);color:#fff;border-color:var(--amber,#d97706);}
+.oshi-design-btn{padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:12px;color:var(--t2);cursor:pointer;}
+.oshi-design-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.oshi-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+.oshi-row label{font-size:11px;color:var(--t2);font-weight:600;}
+.oshi-row input,.oshi-row textarea{padding:8px 10px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;width:100%;box-sizing:border-box;}
+.oshi-row textarea{resize:vertical;min-height:54px;}
+@media print{
+  body>*{display:none!important;}
+  #oshi-print-area{display:block!important;}
+}
 .crow{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:.5px solid var(--border);}
 .crow:last-child{border-bottom:none;}
 .cdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
@@ -608,10 +620,67 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
             <div style="margin-left:auto;font-size:18px;color:var(--t3);">›</div>
           </div>
         </div>
+        <div class="card" style="cursor:pointer;margin-top:10px;" onclick="openOshinagaki()">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:28px;">📜</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;margin-bottom:2px;">お品書き作成・印刷</div>
+              <div style="font-size:12px;color:var(--t2);">会席・朝食・中華メニューの編集と印刷</div>
+            </div>
+            <div style="margin-left:auto;font-size:18px;color:var(--t3);">›</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- お品書きモーダル -->
+<div id="oshinagaki-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;overflow-y:auto;">
+  <div style="min-height:100%;display:flex;flex-direction:column;align-items:center;padding:16px 12px 40px;">
+    <div style="width:100%;max-width:640px;background:var(--surface);border-radius:var(--rl);overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+      <!-- ヘッダー -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:.5px solid var(--border);">
+        <div style="font-size:17px;font-weight:700;">📜 お品書き作成・印刷</div>
+        <button onclick="closeOshinagaki()" style="width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:18px;cursor:pointer;color:var(--t2);">×</button>
+      </div>
+      <!-- メニュー種別選択 -->
+      <div style="padding:16px 20px 0;">
+        <div style="font-size:12px;color:var(--t2);margin-bottom:8px;font-weight:600;">メニュー種別</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;" id="oshinagaki-type-btns">
+          <button class="oshi-type-btn active" onclick="selectOshiType('kaiseki1',this)">会席 1日目</button>
+        </div>
+      </div>
+      <!-- 背景デザイン選択 -->
+      <div style="padding:12px 20px 0;">
+        <div style="font-size:12px;color:var(--t2);margin-bottom:8px;font-weight:600;">背景デザイン</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;" id="oshi-design-btns">
+          <button class="oshi-design-btn active" onclick="selectOshiDesign('autumn',this)" style="display:flex;align-items:center;gap:6px;">🍁 秋</button>
+          <button class="oshi-design-btn" onclick="selectOshiDesign('winter',this)" style="display:flex;align-items:center;gap:6px;">❄️ 冬</button>
+          <button class="oshi-design-btn" onclick="selectOshiDesign('spring',this)" style="display:flex;align-items:center;gap:6px;">🌸 春</button>
+          <button class="oshi-design-btn" onclick="selectOshiDesign('summer',this)" style="display:flex;align-items:center;gap:6px;">🌿 夏</button>
+          <button class="oshi-design-btn" onclick="selectOshiDesign('plain',this)" style="display:flex;align-items:center;gap:6px;">⬜ シンプル</button>
+        </div>
+      </div>
+      <!-- 編集エリア -->
+      <div style="padding:12px 20px;" id="oshi-edit-area"></div>
+      <!-- プレビュー -->
+      <div style="padding:0 20px 12px;">
+        <div style="font-size:12px;color:var(--t2);margin-bottom:8px;font-weight:600;">プレビュー（実際の印刷イメージ）</div>
+        <div id="oshi-preview-wrap" style="border:.5px solid var(--border);border-radius:10px;overflow:hidden;background:#f5f0e8;">
+          <div id="oshi-preview" style="transform-origin:top left;"></div>
+        </div>
+      </div>
+      <!-- 印刷ボタン -->
+      <div style="padding:0 20px 20px;display:flex;gap:10px;">
+        <button onclick="printOshinagaki()" style="flex:1;padding:14px;border-radius:var(--r);background:var(--green);color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;">🖨 印刷する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- お品書き印刷用隠しエリア -->
+<div id="oshi-print-area" style="display:none;"></div>
 
 <div class="toast" id="toast"></div>
 <div id="confirm-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;">
@@ -8295,6 +8364,151 @@ function openNumberCounter(){
   const dk=getDateKey(selectedDate);
   window.open('number_counter.html?date='+dk,'_blank');
 }
+
+// ===== お品書き機能 =====
+const OSHI_MENUS={
+  kaiseki1:{
+    label:'会席 1日目',
+    title:'御　献　立',
+    courses:[
+      {key:'sakizuke', name:'先　付', content:'湯葉豆腐\nサーモン燻製・滑子\n梅山葵・めかぶ\nブロッコリースプラウト'},
+      {key:'zensai',   name:'前　菜', content:'里芋玄米揚　飯坂名物烏賊人参\n合鴨西京漬　大学芋\n胡桃豆腐　海老塩辛'},
+      {key:'mukouzuke',name:'向　付', content:'本鮪　鯛　甘海老\n妻色々'},
+      {key:'yakimono', name:'焼　物', content:'福島牛陶板焼\nエリンギ　丸十　獅子唐\n藻塩　山葵　すだち'},
+      {key:'shinogi',  name:'凌　ぎ', content:'鰊蕎麦　大根おろし\nさらし葱　山葵'},
+      {key:'mushimono',name:'蒸　物', content:'海老芋饅頭　海老そぼろ\nきのこ餡　柚子胡椒'},
+      {key:'nabemono', name:'鍋　物', content:'川俣軍鶏味噌煮込みうどんすき鍋\n白菜　小松菜　舞茸　牛蒡\n榎茸　焼豆腐　長葱　人参　油揚げ'},
+      {key:'gohan',    name:'御食事', content:'会津こしひかり　※子持ち木耳'},
+      {key:'kounomono',name:'香の物', content:'自家製大根漬け'},
+      {key:'suimono',  name:'吸　物', content:'牛蒡餅　松茸　菊花　三つ葉'},
+      {key:'mizugashi',name:'水菓子', content:'栗三重奏と実りの果実\nマロンプリン　栗渋皮煮\n甘栗羊羹　巨峰'},
+    ],
+    note:'仕入状況により内容が変更となる場合がございます。\n※は売店にてお買い求めいただけます。',
+    chef:'料理長　渡辺　健二',
+  }
+};
+
+const OSHI_DESIGNS={
+  autumn:{label:'🍁 秋', bg:'#fdf6ec', border:'#c8914a', accent:'#8b4513', pattern:'autumn'},
+  winter:{label:'❄️ 冬', bg:'#f0f4f8', border:'#6a8faf', accent:'#2c4a6e', pattern:'winter'},
+  spring:{label:'🌸 春', bg:'#fdf0f4', border:'#c97a8a', accent:'#8b3a52', pattern:'spring'},
+  summer:{label:'🌿 夏', bg:'#f0f8f4', border:'#5a9a78', accent:'#2c6b4a', pattern:'summer'},
+  plain: {label:'⬜ シンプル', bg:'#ffffff', border:'#888', accent:'#222', pattern:'plain'},
+};
+
+let _oshiCurrentType='kaiseki1';
+let _oshiCurrentDesign='autumn';
+let _oshiEditData={};
+
+function openOshinagaki(){
+  if(!window._currentUser){showToast('ログインが必要です');return;}
+  _oshiCurrentType='kaiseki1';
+  _oshiCurrentDesign='autumn';
+  _initOshiEditData();
+  document.getElementById('oshinagaki-modal').style.display='block';
+  _renderOshiEdit();
+  _renderOshiPreview();
+}
+
+function closeOshinagaki(){
+  document.getElementById('oshinagaki-modal').style.display='none';
+}
+
+function _initOshiEditData(){
+  const menu=OSHI_MENUS[_oshiCurrentType];
+  _oshiEditData={
+    title: menu.title,
+    courses: menu.courses.map(function(c){return{key:c.key,name:c.name,content:c.content};}),
+    note: menu.note,
+    chef: menu.chef,
+  };
+}
+
+function selectOshiType(type,btn){
+  _oshiCurrentType=type;
+  document.querySelectorAll('.oshi-type-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  _initOshiEditData();
+  _renderOshiEdit();
+  _renderOshiPreview();
+}
+
+function selectOshiDesign(design,btn){
+  _oshiCurrentDesign=design;
+  document.querySelectorAll('.oshi-design-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  _renderOshiPreview();
+}
+
+function _renderOshiEdit(){
+  const area=document.getElementById('oshi-edit-area');
+  if(!area)return;
+  let html='<div style="font-size:12px;color:var(--t2);margin-bottom:8px;font-weight:600;">内容編集</div>';
+  html+='<div class="oshi-row"><label>タイトル</label><input id="oshi-title" value="'+escHtml(_oshiEditData.title)+'" oninput="_oshiEditData.title=this.value;_renderOshiPreview()"></div>';
+  _oshiEditData.courses.forEach(function(c,i){
+    html+='<div class="oshi-row"><label>'+escHtml(c.name)+'</label>'
+      +'<textarea id="oshi-course-'+i+'" oninput="_oshiEditData.courses['+i+'].content=this.value;_renderOshiPreview()">'+escHtml(c.content)+'</textarea></div>';
+  });
+  html+='<div class="oshi-row"><label>備考</label><textarea id="oshi-note" oninput="_oshiEditData.note=this.value;_renderOshiPreview()">'+escHtml(_oshiEditData.note)+'</textarea></div>';
+  html+='<div class="oshi-row"><label>料理長</label><input id="oshi-chef" value="'+escHtml(_oshiEditData.chef)+'" oninput="_oshiEditData.chef=this.value;_renderOshiPreview()"></div>';
+  area.innerHTML=html;
+}
+
+function _buildOshiHtml(forPrint){
+  const d=OSHI_DESIGNS[_oshiCurrentDesign];
+  // 短冊1枚分のHTML（縦書き）を生成
+  function makeShortaku(){
+    let courses='';
+    _oshiEditData.courses.forEach(function(c){
+      const lines=c.content.split('\n').map(function(l){return '<div style="margin-bottom:2px;">'+escHtml(l)+'</div>';}).join('');
+      courses+='<div style="display:flex;gap:0;margin-bottom:10px;">'
+        +'<div style="writing-mode:vertical-rl;font-size:'+(forPrint?'10':'9')+'px;font-weight:700;color:'+d.accent+';min-width:24px;letter-spacing:2px;">'+escHtml(c.name)+'</div>'
+        +'<div style="writing-mode:vertical-rl;font-size:'+(forPrint?'10':'9')+'px;color:#333;line-height:1.7;padding-left:4px;">'+escHtml(c.content.replace(/\n/g,'　'))+'</div>'
+        +'</div>';
+    });
+    const noteLines=_oshiEditData.note.split('\n').map(function(l){return '<div>'+escHtml(l)+'</div>';}).join('');
+    return '<div style="'
+      +'background:'+d.bg+';'
+      +'border:2px solid '+d.border+';'
+      +'width:'+(forPrint?'99mm':'140px')+';'
+      +'min-height:'+(forPrint?'196mm':'276px')+';'
+      +'padding:'+(forPrint?'10mm 8mm':'14px 10px')+';'
+      +'box-sizing:border-box;'
+      +'display:flex;flex-direction:column;'
+      +'font-family:\'游明朝\',\'Yu Mincho\',\'HGS明朝E\',serif;'
+      +'">'
+      +'<div style="text-align:center;font-size:'+(forPrint?'16':'13')+'px;font-weight:700;color:'+d.accent+';letter-spacing:4px;margin-bottom:'+(forPrint?'6mm':'8px')+';">'+escHtml(_oshiEditData.title)+'</div>'
+      +'<div style="flex:1;writing-mode:vertical-rl;display:flex;flex-direction:row;justify-content:flex-start;gap:6px;overflow:hidden;">'+courses+'</div>'
+      +'<div style="margin-top:'+(forPrint?'4mm':'6px')+';border-top:1px solid '+d.border+';padding-top:'+(forPrint?'3mm':'4px')+';font-size:'+(forPrint?'7':'7')+'px;color:#666;line-height:1.6;">'+noteLines+'</div>'
+      +'<div style="text-align:right;font-size:'+(forPrint?'8':'8')+'px;color:'+d.accent+';margin-top:'+(forPrint?'2mm':'4px')+';">'+escHtml(_oshiEditData.chef)+'　吉日</div>'
+      +'</div>';
+  }
+  const s=makeShortaku();
+  if(forPrint){
+    return '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+      +'<style>@page{size:A4 portrait;margin:8mm;}body{margin:0;display:flex;flex-direction:column;align-items:center;gap:4mm;padding:0;}'
+      +'*{box-sizing:border-box;}</style></head><body>'
+      +s+s
+      +'</body></html>';
+  }else{
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px;">'+s+s+'</div>';
+  }
+}
+
+function _renderOshiPreview(){
+  const wrap=document.getElementById('oshi-preview');
+  if(!wrap)return;
+  wrap.innerHTML=_buildOshiHtml(false);
+}
+
+function printOshinagaki(){
+  const html=_buildOshiHtml(true);
+  const win=window.open('','_blank','width=800,height=1000');
+  win.document.write(html);
+  win.document.close();
+  win.onload=function(){win.print();};
+}
+
 let _confirmCallback=null;
 function showConfirmModal(msg,cb){
   _confirmCallback=cb;
