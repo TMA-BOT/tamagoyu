@@ -9060,18 +9060,18 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
 </div>
 
 <!-- シフト管理モーダル -->
-<div id="shift-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;overflow-y:auto;">
-  <div style="min-height:100%;display:flex;flex-direction:column;align-items:center;padding:16px 8px 40px;">
-    <div style="width:100%;max-width:1400px;background:var(--surface);border-radius:var(--rl);overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+<div id="shift-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;display:none;flex-direction:column;align-items:center;justify-content:center;padding:12px;">
+  <div style="width:100%;max-width:1400px;height:calc(100vh - 24px);background:var(--surface);border-radius:var(--rl);overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3);display:flex;flex-direction:column;">
       <!-- ヘッダー -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:.5px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:.5px solid var(--border);background:var(--surface);flex-shrink:0;">
         <div style="font-size:17px;font-weight:700;">📅 シフト管理（フロント）</div>
         <div style="display:flex;gap:8px;align-items:center;">
+          <button onclick="openShiftNewTab()" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">↗ 別タブで開く</button>
           <button onclick="printShift()" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">🖨 印刷</button>
           <button onclick="closeShiftManager()" style="width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:18px;cursor:pointer;color:var(--t2);">×</button>
         </div>
       </div>
-      <div style="padding:12px 16px;">
+      <div style="padding:12px 16px;overflow-y:auto;flex:1;">
         <!-- 月選択 -->
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
           <button onclick="shiftChangeMonth(-1)" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:14px;cursor:pointer;color:var(--t2);">◀</button>
@@ -9092,7 +9092,6 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
         </div>
       </div>
     </div>
-  </div>
 </div>
 
 <!-- メンバー管理モーダル -->
@@ -9154,7 +9153,8 @@ var SHIFT_CODES={
 var SHIFT_CODE_KEYS=['A','B','C','D','E','F','G','H','I','夜','休','有','講','〇',''];
 
 function openShiftManager(){
-  document.getElementById('shift-modal').style.display='flex';
+  var el=document.getElementById('shift-modal');
+  el.style.display='flex';
   document.body.style.overflow='hidden';
   if(!_shiftLoaded){_loadShiftData();}else{_renderShift();}
 }
@@ -9162,6 +9162,87 @@ function closeShiftManager(){
   document.getElementById('shift-modal').style.display='none';
   document.body.style.overflow='';
   document.getElementById('shift-cell-popup').style.display='none';
+}
+function openShiftNewTab(){
+  // 現在のシフトデータをlocalStorageに保存して別タブで開く
+  localStorage.setItem('_shiftStandalone',JSON.stringify({
+    members:SHIFT_MEMBERS,data:SHIFT_DATA,year:SHIFT_YEAR,month:SHIFT_MONTH
+  }));
+  var w=window.open('','_blank');
+  w.document.write(_buildShiftStandalonePage());
+  w.document.close();
+}
+function _buildShiftStandalonePage(){
+  var daysInMonth=new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();
+  var monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
+  var monthData=SHIFT_DATA[monthKey]||{};
+  var weekDays=['日','月','火','水','木','金','土'];
+
+  // ヘッダー行
+  var thead='<tr><th style="position:sticky;left:0;z-index:3;min-width:90px;padding:6px 10px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;">氏名</th>';
+  for(var d=1;d<=daysInMonth;d++){
+    var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
+    var dc=dow===0?'color:#e11d48':dow===6?'color:#1d4ed8':'';
+    thead+='<th style="min-width:34px;padding:3px 2px;text-align:center;font-size:11px;background:#f8fafc;border:1px solid #e2e8f0;'+dc+'">'+d+'<br><span style="font-size:9px;">'+weekDays[dow]+'</span></th>';
+  }
+  thead+='<th style="min-width:50px;text-align:center;font-size:11px;background:#f8fafc;border:1px solid #e2e8f0;">公休</th></tr>';
+
+  var tbody='';
+  SHIFT_MEMBERS.forEach(function(m){
+    var kyuCount=0;
+    tbody+='<tr>';
+    tbody+='<td style="position:sticky;left:0;z-index:1;background:#fff;padding:5px 10px;font-size:12px;font-weight:700;white-space:nowrap;border:1px solid #e2e8f0;">'+m.name+'<br><span style="font-size:9px;color:#94a3b8;font-weight:400;">'+m.role+'</span></td>';
+    for(var d=1;d<=daysInMonth;d++){
+      var code=(monthData[m.id]||{})[d]||'';
+      if(code==='休'||code==='有')kyuCount++;
+      var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
+      var sc=SHIFT_CODES[code];
+      var bg=sc?sc.color:dow===0?'#fff5f5':dow===6?'#f0f7ff':'#fff';
+      var tc=sc?sc.text:'#333';
+      tbody+='<td style="text-align:center;font-size:12px;font-weight:700;background:'+bg+';color:'+tc+';border:1px solid #e2e8f0;padding:2px;">'+code+'</td>';
+    }
+    var rem=9-kyuCount;
+    var cc=!m.kyukei?'#94a3b8':rem<0?'#dc2626':rem===0?'#16a34a':'#d97706';
+    tbody+='<td style="text-align:center;font-size:12px;font-weight:700;color:'+cc+';border:1px solid #e2e8f0;">'+(m.kyukei?kyuCount+'/9':'—')+'</td>';
+    tbody+='</tr>';
+  });
+
+  // 公休カウンター
+  var counter='';
+  SHIFT_MEMBERS.forEach(function(m){
+    if(!m.kyukei)return;
+    var kc=0;
+    for(var d=1;d<=daysInMonth;d++){var c=(monthData[m.id]||{})[d]||'';if(c==='休'||c==='有')kc++;}
+    var rem=9-kc;
+    var cc=rem<0?'#dc2626':rem===0?'#16a34a':'#d97706';
+    var bg=rem<0?'#fee2e2':rem===0?'#dcfce7':'#fef9c3';
+    counter+='<span style="padding:5px 12px;border-radius:20px;background:'+bg+';border:1px solid '+cc+';font-size:12px;font-weight:700;color:'+cc+';">'+m.name+' '+kc+'/9'+(rem>0?' あと'+rem+'日':rem===0?' ✓':' '+Math.abs(rem)+'超過')+'</span> ';
+  });
+
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>シフト表 '+SHIFT_YEAR+'年'+SHIFT_MONTH+'月</title>'
+    +'<style>*{box-sizing:border-box;}body{margin:0;padding:0;font-family:-apple-system,sans-serif;background:#f1f5f9;}'
+    +'h1{margin:0;font-size:16px;} table{border-collapse:collapse;} th,td{white-space:nowrap;}'
+    +'</style></head><body>'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:10;">'
+    +'<h1>フロント　シフト表　'+SHIFT_YEAR+'年'+SHIFT_MONTH+'月</h1>'
+    +'<button onclick="window.print()" style="padding:6px 16px;border-radius:20px;border:1px solid #cbd5e1;background:none;font-size:12px;cursor:pointer;">🖨 印刷</button>'
+    +'</div>'
+    +'<div style="padding:10px 16px;background:#fff;border-bottom:1px solid #e2e8f0;">'
+    +'<div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:600;">公休カウンター</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'+counter+'</div>'
+    +'</div>'
+    +'<div style="overflow:auto;padding:12px 16px;">'
+    +'<table style="border-collapse:collapse;width:100%;">'
+    +'<thead style="position:sticky;top:0;">'+thead+'</thead>'
+    +'<tbody>'+tbody+'</tbody>'
+    +'</table></div>'
+    +'<div style="padding:10px 16px;background:#fff;border-top:1px solid #e2e8f0;margin-top:8px;">'
+    +'<div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:6px;">勤務コード</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+    +Object.keys(SHIFT_CODES).map(function(k){var c=SHIFT_CODES[k];return'<span style="padding:3px 10px;border-radius:10px;background:'+c.color+';color:'+c.text+';font-weight:700;font-size:11px;">'+c.label+' <span style="font-weight:400;font-size:9px;">'+c.time+'</span></span>';}).join('')
+    +'</div></div>'
+    +'</body></html>';
 }
 
 function _loadShiftData(){
