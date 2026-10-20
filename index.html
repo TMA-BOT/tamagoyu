@@ -8503,12 +8503,15 @@ function _buildOshiHtml(forPrint){
       els+='<line x1="'+(cx-colW/2+2)+'" y1="'+nameEndY+'" x2="'+(cx+colW/2-2)+'" y2="'+nameEndY+'" stroke="'+d.border+'" stroke-width="0.5" opacity="0.6"/>';
 
       // メニュー内容（ジャンル名の下から）
-      var contentY=nameEndY+10;
-      var lineStep=10;
+      // 複数行は横に並べる（各行が1列）
+      var cfs=7.5; // content font size
+      var cStep=cfs*1.4; // 1文字分の縦ステップ
+      var colSpacing=cfs+3; // 行間（列間）の横ステップ
       lines.forEach(function(line,li){
         var chars=line.split('');
+        var lx=cx+(lines.length/2-li-0.5)*colSpacing; // 複数行を横に均等配置
         chars.forEach(function(ch,ci){
-          els+='<text x="'+cx+'" y="'+(contentY+li*lineStep*chars.length/(chars.length||1)+ci*lineStep)+'" text-anchor="middle" font-family="'+font+'" font-size="7.5" fill="#333">'+escHtml(ch)+'</text>';
+          els+='<text x="'+lx+'" y="'+(nameEndY+10+ci*cStep)+'" text-anchor="middle" font-family="'+font+'" font-size="'+cfs+'" fill="#333">'+escHtml(ch)+'</text>';
         });
       });
 
