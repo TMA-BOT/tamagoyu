@@ -3507,9 +3507,9 @@ function buildLunchList(){
   },0);
   const legendHtml='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;padding:8px 10px;background:var(--bg2);border-radius:10px;border:.5px solid var(--border);">'
     +'<span style="font-size:10px;color:var(--t3);font-weight:600;align-self:center;">背景色：</span>'
-    +'<span style="font-size:10px;padding:3px 10px;border-radius:20px;background:#eff6ff;border:1px solid var(--blue);color:var(--blue);font-weight:700;">🏠 部屋付け</span>'
-    +'<span style="font-size:10px;padding:3px 10px;border-radius:20px;background:#fefce8;border:1px solid var(--amber);color:#b45309;font-weight:700;">🚪 お部屋お届け</span>'
-    +'<span style="font-size:10px;padding:3px 10px;border-radius:20px;background:linear-gradient(90deg,#eff6ff,#fefce8);border:1px solid var(--amber);color:var(--blue);font-weight:700;">🏠🚪 両方</span>'
+    +'<span style="font-size:10px;padding:3px 10px;border-radius:20px;background:#dbeafe;border:1px solid var(--blue);color:var(--blue);font-weight:700;">🏠 部屋付け</span>'
+    +'<span style="font-size:10px;padding:3px 10px;border-radius:20px;background:#fef9c3;border:1px solid var(--amber);color:#b45309;font-weight:700;">🚪 お部屋お届け</span>'
+    +'<span style="font-size:10px;padding:3px 10px;border-radius:20px;background:#ede9fe;border:1px solid #7c3aed;color:#7c3aed;font-weight:700;">🏠🚪 両方</span>'
     +'</div>';
   let gridHtml='<div class="meal-grid">';
   LUNCHES.forEach(function(lu,i){
@@ -3562,9 +3562,9 @@ function buildLunchList(){
       +(!venuePaid&&hasVenue?'<button onclick="markVenuePaid('+i+')" style="padding:8px;border-radius:var(--r);background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;">✓ 追加分 精算済にする</button>':'')
       +'</div>':'';
     const isDelivery=!!lu.deliveryRoom;
-    const cardBg=isRoom&&isDelivery?'linear-gradient(135deg,#eff6ff 60%,#fefce8 100%)'
-      :isRoom?'#eff6ff'
-      :isDelivery?'#fefce8'
+    const cardBg=isRoom&&isDelivery?'#ede9fe'
+      :isRoom?'#dbeafe'
+      :isDelivery?'#fef9c3'
       :'';
     const cardBorderColor=isRoom&&isDelivery?'var(--amber)':isRoom?'var(--blue)':isDelivery?'var(--amber)':!frontPaid?'var(--red)':(!venuePaid&&hasVenue)?'var(--amber)':'var(--border)';
     gridHtml+='<div class="lcard" style="border-color:'+cardBorderColor+';'+(cardBg?'background:'+cardBg+';':'')+'">'
