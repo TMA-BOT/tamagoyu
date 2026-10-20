@@ -8457,98 +8457,69 @@ function _renderOshiEdit(){
 function _buildOshiHtml(forPrint){
   const d=OSHI_DESIGNS[_oshiCurrentDesign];
 
-  // SVGで短冊を描画する（座標指定で確実なレイアウト）
-  // 短冊サイズ: 幅540px × 高さ180px（プレビュー）/ 印刷時はviewBoxスケール
-  function makeShortakuSvg(W,H){
-    var pad=10;
-    var innerW=W-pad*2;
-    var innerH=H-pad*2;
-    var font='Yu Mincho, 游明朝, HGS明朝E, serif';
+  function makeShortaku(pw){
+    var ff='\'游明朝\',\'Yu Mincho\',\'HGS明朝E\',serif';
+    var h=pw?'130mm':'170px';
+    var pad=pw?'8mm':'8px';
 
-    var els='';
+    // タイトル「御献立」
+    var titleHtml='<div style="'
+      +'writing-mode:vertical-rl;'
+      +'font-size:'+(pw?'16px':'13px')+';font-weight:700;color:'+d.accent+';letter-spacing:4px;'
+      +'padding:0 '+(pw?'6px':'5px')+';'
+      +'border-left:2px solid '+d.border+';'
+      +'flex-shrink:0;white-space:nowrap;'
+      +'">'+escHtml(_oshiEditData.title)+'</div>';
 
-    // 背景・枠
-    els+='<rect width="'+W+'" height="'+H+'" fill="'+d.bg+'" rx="3"/>';
-    els+='<rect x="'+pad/2+'" y="'+pad/2+'" width="'+(W-pad)+'" height="'+(H-pad)+'" fill="none" stroke="'+d.border+'" stroke-width="1.5" rx="2"/>';
-
-    // コース数と配置幅を計算
-    var courses=_oshiEditData.courses;
-    var noteW=40; // 備考欄の幅
-    var titleW=30; // タイトル欄の幅
-    var availW=innerW-titleW-noteW-10;
-    var colW=Math.floor(availW/courses.length);
-
-    // 右端：タイトル「御献立」
-    var tx=W-pad-titleW+titleW/2;
-    els+='<line x1="'+(W-pad-titleW)+'" y1="'+pad+'" x2="'+(W-pad-titleW)+'" y2="'+(H-pad)+'" stroke="'+d.border+'" stroke-width="1.2"/>';
-    var titleChars=_oshiEditData.title.split('');
-    var tyStep=(innerH-10)/titleChars.length;
-    titleChars.forEach(function(ch,i){
-      els+='<text x="'+tx+'" y="'+(pad+8+i*tyStep)+'" text-anchor="middle" font-family="'+font+'" font-size="14" font-weight="bold" fill="'+d.accent+'" letter-spacing="2">'+escHtml(ch)+'</text>';
+    // 各コース：ジャンル名を上に、内容をその下に続ける
+    // writing-mode:vertical-rl の div の中にテキストを流すだけ→自然に上から下へ
+    var coursesHtml='';
+    _oshiEditData.courses.forEach(function(c){
+      var contentText=c.content.replace(/\n/g,'　');
+      coursesHtml+='<div style="'
+        +'writing-mode:vertical-rl;'
+        +'padding:0 '+(pw?'3px':'2px')+';'
+        +'border-left:1px solid '+d.border+'44;'
+        +'flex-shrink:0;'
+        +'font-family:'+ff+';'
+        +'">'
+        // ジャンル名：ブロック要素で上から始まる
+        +'<div style="font-size:'+(pw?'9px':'7.5px')+';font-weight:700;color:'+d.accent+';white-space:nowrap;letter-spacing:1px;border-bottom:1px solid '+d.border+'66;padding-bottom:2px;margin-bottom:3px;">'+escHtml(c.name)+'</div>'
+        // 内容：ジャンル名の直後に続く
+        +'<div style="font-size:'+(pw?'8px':'7px')+';color:#333;white-space:nowrap;line-height:1.7;">'+escHtml(contentText)+'</div>'
+        +'</div>';
     });
 
-    // 各コース（右から左へ）
-    courses.forEach(function(c,i){
-      var cx=W-pad-titleW-10-(i+0.5)*colW;
-      var lines=c.content.split('\n');
+    // 備考・料理長
+    var noteHtml='<div style="'
+      +'writing-mode:vertical-rl;'
+      +'font-size:'+(pw?'7px':'6px')+';color:#666;'
+      +'padding:0 '+(pw?'3px':'2px')+';'
+      +'flex-shrink:0;white-space:nowrap;'
+      +'">'
+      +'<div>'+escHtml(_oshiEditData.note.replace(/\n/g,'　'))+'</div>'
+      +'<div style="color:'+d.accent+';font-weight:700;margin-top:3px;">'+escHtml(_oshiEditData.chef)+'　吉日</div>'
+      +'</div>';
 
-      // ジャンル名を上端に（y=pad+8固定）
-      var nameChars=c.name.split('');
-      var nameStep=11;
-      nameChars.forEach(function(ch,j){
-        els+='<text x="'+cx+'" y="'+(pad+8+j*nameStep)+'" text-anchor="middle" font-family="'+font+'" font-size="9" font-weight="bold" fill="'+d.accent+'">'+escHtml(ch)+'</text>';
-      });
-      var nameEndY=pad+8+nameChars.length*nameStep+4;
-      // ジャンル名下の区切り線
-      els+='<line x1="'+(cx-colW/2+2)+'" y1="'+nameEndY+'" x2="'+(cx+colW/2-2)+'" y2="'+nameEndY+'" stroke="'+d.border+'" stroke-width="0.5" opacity="0.6"/>';
-
-      // メニュー内容（ジャンル名の下から）
-      // 複数行は横に並べる（各行が1列）
-      var cfs=7.5; // content font size
-      var cStep=cfs*1.4; // 1文字分の縦ステップ
-      var colSpacing=cfs+3; // 行間（列間）の横ステップ
-      lines.forEach(function(line,li){
-        var chars=line.split('');
-        var lx=cx+(lines.length/2-li-0.5)*colSpacing; // 複数行を横に均等配置
-        chars.forEach(function(ch,ci){
-          els+='<text x="'+lx+'" y="'+(nameEndY+10+ci*cStep)+'" text-anchor="middle" font-family="'+font+'" font-size="'+cfs+'" fill="#333">'+escHtml(ch)+'</text>';
-        });
-      });
-
-      // コース間の区切り線
-      if(i<courses.length-1){
-        var lx=cx-colW/2;
-        els+='<line x1="'+lx+'" y1="'+pad+'" x2="'+lx+'" y2="'+(H-pad)+'" stroke="'+d.border+'" stroke-width="0.5" opacity="0.4"/>';
-      }
-    });
-
-    // 左端：備考・料理長
-    var nx=pad+noteW/2;
-    var noteText=_oshiEditData.note.replace(/\n/g,'　')+'\n'+_oshiEditData.chef+'　吉日';
-    var noteChars=noteText.split('');
-    var nyStep=Math.min(9,(innerH-10)/noteChars.length);
-    noteChars.forEach(function(ch,i){
-      if(ch==='\n')return;
-      els+='<text x="'+nx+'" y="'+(pad+8+i*nyStep)+'" text-anchor="middle" font-family="'+font+'" font-size="6.5" fill="#666">'+escHtml(ch)+'</text>';
-    });
-    els+='<line x1="'+(pad+noteW)+'" y1="'+pad+'" x2="'+(pad+noteW)+'" y2="'+(H-pad)+'" stroke="'+d.border+'" stroke-width="0.8" opacity="0.5"/>';
-
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">'+els+'</svg>';
+    return '<div style="'
+      +'background:'+d.bg+';border:2px solid '+d.border+';'
+      +'width:'+(pw?'190mm':'100%')+';height:'+h+';'
+      +'padding:'+pad+';box-sizing:border-box;'
+      +'display:flex;flex-direction:row;'
+      +'direction:rtl;'
+      +'align-items:flex-start;'
+      +'overflow:hidden;'
+      +'font-family:'+ff+';'
+      +'">'+titleHtml+coursesHtml+noteHtml+'</div>';
   }
 
   if(forPrint){
-    var svg1=makeShortakuSvg(720,240);
+    var s=makeShortaku(true);
     return '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-      +'<style>'
-      +'@page{size:A4 portrait;margin:10mm;}'
-      +'body{margin:0;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:space-around;height:277mm;}'
-      +'svg{width:190mm;height:auto;}'
-      +'</style></head><body>'
-      +svg1+svg1
-      +'</body></html>';
+      +'<style>@page{size:A4 portrait;margin:10mm;}body{margin:0;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:space-around;height:277mm;}*{box-sizing:border-box;}</style>'
+      +'</head><body>'+s+s+'</body></html>';
   }else{
-    var svg=makeShortakuSvg(560,185);
-    return '<div style="padding:8px;overflow-x:auto;">'+svg+'</div>';
+    return '<div style="padding:8px;">'+makeShortaku(false)+'</div>';
   }
 }
 
