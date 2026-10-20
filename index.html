@@ -8497,15 +8497,17 @@ function _buildOshiHtml(forPrint){
         +'</div>';
     });
 
-    // 備考・料理長
+    // 備考・料理長（折り返し対応）
     var noteHtml='<div style="'
       +'writing-mode:vertical-rl;direction:ltr;'
       +'font-size:'+(pw?'8px':'6px')+';color:#666;'
       +'padding:0 '+(pw?'6px':'2px')+';'
-      +'flex-shrink:0;white-space:nowrap;max-height:'+h+';overflow:hidden;'
+      +'flex-shrink:0;'
+      +'width:'+(pw?'20mm':'26px')+';'
+      +'height:'+h+';overflow:hidden;'
       +'">'
-      +'<div>'+escHtml(_oshiEditData.note.replace(/\n/g,'　'))+'</div>'
-      +'<div style="color:'+d.accent+';font-weight:700;margin-top:4px;">'+escHtml(_oshiEditData.chef)+'　吉日</div>'
+      +'<div style="white-space:normal;word-break:break-all;">'+escHtml(_oshiEditData.note)+'</div>'
+      +'<div style="color:'+d.accent+';font-weight:700;margin-top:4px;white-space:nowrap;">'+escHtml(_oshiEditData.chef)+'　吉日</div>'
       +'</div>';
 
     return '<div style="'
