@@ -630,6 +630,16 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
             <div style="margin-left:auto;font-size:18px;color:var(--t3);">›</div>
           </div>
         </div>
+        <div class="card" style="cursor:pointer;margin-top:10px;" onclick="openShiftManager()">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:28px;">📅</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;margin-bottom:2px;">シフト管理（フロント）</div>
+              <div style="font-size:12px;color:var(--t2);">月別シフト入力・公休カウンター・印刷</div>
+            </div>
+            <div style="margin-left:auto;font-size:18px;color:var(--t3);">›</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -9048,5 +9058,401 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
     </div>
   </div>
 </div>
+
+<!-- シフト管理モーダル -->
+<div id="shift-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;overflow-y:auto;">
+  <div style="min-height:100%;display:flex;flex-direction:column;align-items:center;padding:16px 12px 40px;">
+    <div style="width:100%;max-width:900px;background:var(--surface);border-radius:var(--rl);overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+      <!-- ヘッダー -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:.5px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;">
+        <div style="font-size:17px;font-weight:700;">📅 シフト管理（フロント）</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button onclick="printShift()" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">🖨 印刷</button>
+          <button onclick="closeShiftManager()" style="width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:18px;cursor:pointer;color:var(--t2);">×</button>
+        </div>
+      </div>
+      <div style="padding:16px 20px;">
+        <!-- 月選択 -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <button onclick="shiftChangeMonth(-1)" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:14px;cursor:pointer;color:var(--t2);">◀</button>
+          <div id="shift-month-label" style="font-size:18px;font-weight:700;min-width:120px;text-align:center;"></div>
+          <button onclick="shiftChangeMonth(1)" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:14px;cursor:pointer;color:var(--t2);">▶</button>
+          <button onclick="openShiftMemberManager()" style="margin-left:auto;padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:12px;cursor:pointer;color:var(--t2);">👥 メンバー管理</button>
+        </div>
+        <!-- 公休カウンター -->
+        <div id="shift-counter" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+        <!-- シフト表 -->
+        <div style="overflow-x:auto;">
+          <div id="shift-table-wrap"></div>
+        </div>
+        <!-- 勤務コード凡例 -->
+        <div style="margin-top:12px;padding:10px 12px;background:var(--bg2);border-radius:10px;border:.5px solid var(--border);">
+          <div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:6px;">勤務コード</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:10px;" id="shift-code-legend"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- メンバー管理モーダル -->
+<div id="shift-member-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;overflow-y:auto;">
+  <div style="min-height:100%;display:flex;flex-direction:column;align-items:center;padding:16px 12px 40px;">
+    <div style="width:100%;max-width:480px;background:var(--surface);border-radius:var(--rl);overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:.5px solid var(--border);">
+        <div style="font-size:16px;font-weight:700;">👥 メンバー管理</div>
+        <button onclick="closeShiftMemberManager()" style="width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:18px;cursor:pointer;color:var(--t2);">×</button>
+      </div>
+      <div style="padding:16px 20px;">
+        <div id="shift-member-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+        <!-- 新規追加フォーム -->
+        <div style="padding:12px;background:var(--bg2);border-radius:10px;border:.5px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;margin-bottom:10px;color:var(--t2);">新規メンバー追加</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <input id="shift-new-name" type="text" placeholder="氏名（例：山田 太郎）" style="padding:8px 12px;border-radius:8px;border:.5px solid var(--border2);background:var(--surface);font-size:13px;color:var(--text);">
+            <input id="shift-new-role" type="text" placeholder="役職（例：SMGR、フロント）" style="padding:8px 12px;border-radius:8px;border:.5px solid var(--border2);background:var(--surface);font-size:13px;color:var(--text);">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+              <input id="shift-new-kyukei" type="checkbox" checked> 公休9日カウント対象
+            </label>
+            <button onclick="addShiftMember()" style="padding:8px;border-radius:8px;background:var(--green);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;">＋ 追加</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- セル入力ポップアップ -->
+<div id="shift-cell-popup" style="display:none;position:fixed;z-index:600;background:var(--surface);border:.5px solid var(--border);border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.2);padding:10px;">
+  <div id="shift-cell-popup-inner"></div>
+</div>
+
+<script>
+// ========== シフト管理 ==========
+var SHIFT_YEAR=new Date().getFullYear();
+var SHIFT_MONTH=new Date().getMonth()+1;
+var SHIFT_DATA={};// {year_month: {memberId: {day: code}}}
+var SHIFT_MEMBERS=[];// [{id,name,role,kyukei}]
+var _shiftLoaded=false;
+
+var SHIFT_CODES={
+  'A':{label:'A',time:'07:00-16:00',color:'#dbeafe',text:'#1d4ed8'},
+  'B':{label:'B',time:'07:30-16:30',color:'#dbeafe',text:'#1d4ed8'},
+  'C':{label:'C',time:'08:00-17:00',color:'#dcfce7',text:'#15803d'},
+  'D':{label:'D',time:'08:30-17:30',color:'#dcfce7',text:'#15803d'},
+  'E':{label:'E',time:'09:00-18:00',color:'#fef9c3',text:'#92400e'},
+  'F':{label:'F',time:'09:30-18:30',color:'#fef9c3',text:'#92400e'},
+  'G':{label:'G',time:'10:00-19:00',color:'#fce7f3',text:'#be185d'},
+  'H':{label:'H',time:'11:00-20:00',color:'#f3e8ff',text:'#6b21a8'},
+  'I':{label:'I',time:'12:30-21:30',color:'#ffe4e6',text:'#be123c'},
+  '夜':{label:'夜',time:'21:00-07:00',color:'#1e293b',text:'#e2e8f0'},
+  '休':{label:'休',time:'公休',color:'#f1f5f9',text:'#94a3b8'},
+  '有':{label:'有',time:'有給',color:'#ecfdf5',text:'#059669'},
+  '講':{label:'講',time:'講習・研修',color:'#fff7ed',text:'#c2410c'},
+  '〇':{label:'〇',time:'出勤',color:'#f0fdf4',text:'#16a34a'},
+};
+var SHIFT_CODE_KEYS=['A','B','C','D','E','F','G','H','I','夜','休','有','講','〇',''];
+
+function openShiftManager(){
+  document.getElementById('shift-modal').style.display='flex';
+  document.body.style.overflow='hidden';
+  if(!_shiftLoaded){_loadShiftData();}else{_renderShift();}
+}
+function closeShiftManager(){
+  document.getElementById('shift-modal').style.display='none';
+  document.body.style.overflow='';
+  document.getElementById('shift-cell-popup').style.display='none';
+}
+
+function _loadShiftData(){
+  const db=window._db;
+  if(!db){_renderShift();return;}
+  window._dbGet(window._dbRef(db,'shift_front')).then(function(snap){
+    const v=snap.exists()?snap.val():{};
+    SHIFT_MEMBERS=v.members||_defaultShiftMembers();
+    SHIFT_DATA=v.data||{};
+    _shiftLoaded=true;
+    _renderShift();
+  }).catch(function(){
+    SHIFT_MEMBERS=_defaultShiftMembers();
+    SHIFT_DATA={};
+    _shiftLoaded=true;
+    _renderShift();
+  });
+}
+
+function _defaultShiftMembers(){
+  return [
+    {id:'m1',name:'我妻',role:'SMGR',kyukei:true},
+    {id:'m2',name:'柏倉',role:'AMGR',kyukei:true},
+    {id:'m3',name:'斎藤 哲也',role:'フロント',kyukei:true},
+    {id:'m4',name:'角田 涼華',role:'フロント',kyukei:true},
+    {id:'m5',name:'上野',role:'フロント',kyukei:true},
+    {id:'m6',name:'笠井',role:'フロント',kyukei:true},
+    {id:'m7',name:'阿部M',role:'兼任',kyukei:false},
+    {id:'m8',name:'山上',role:'兼任',kyukei:false},
+    {id:'m9',name:'鈴木',role:'業務委託',kyukei:false},
+  ];
+}
+
+function _saveShiftData(){
+  const db=window._db;
+  if(!db)return;
+  window._dbSet(window._dbRef(db,'shift_front'),{members:SHIFT_MEMBERS,data:SHIFT_DATA})
+    .catch(function(e){console.error('shift save error',e);});
+}
+
+function shiftChangeMonth(d){
+  SHIFT_MONTH+=d;
+  if(SHIFT_MONTH>12){SHIFT_MONTH=1;SHIFT_YEAR++;}
+  if(SHIFT_MONTH<1){SHIFT_MONTH=12;SHIFT_YEAR--;}
+  _renderShift();
+}
+
+function _renderShift(){
+  // 月ラベル
+  document.getElementById('shift-month-label').textContent=SHIFT_YEAR+'年'+SHIFT_MONTH+'月';
+
+  // 日数
+  const daysInMonth=new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();
+  const monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
+  const monthData=SHIFT_DATA[monthKey]||{};
+
+  // 公休カウンター
+  var counterHtml='';
+  SHIFT_MEMBERS.forEach(function(m){
+    if(!m.kyukei)return;
+    var kyuCount=0;
+    for(var d=1;d<=daysInMonth;d++){
+      var code=(monthData[m.id]||{})[d]||'';
+      if(code==='休'||code==='有')kyuCount++;
+    }
+    var remaining=9-kyuCount;
+    var color=remaining<0?'var(--red)':remaining===0?'var(--green)':'var(--amber)';
+    var bg=remaining<0?'var(--red-l)':remaining===0?'var(--green-l)':'var(--amber-l)';
+    counterHtml+='<div style="padding:6px 12px;border-radius:20px;background:'+bg+';border:.5px solid '+color+';font-size:12px;">'
+      +'<span style="font-weight:700;">'+escHtml(m.name)+'</span>'
+      +'<span style="color:var(--t2);margin:0 4px;">公休</span>'
+      +'<span style="font-weight:700;color:'+color+';">'+kyuCount+'/9</span>'
+      +(remaining>0?'<span style="font-size:10px;color:'+color+';margin-left:4px;">あと'+remaining+'日</span>'
+        :remaining===0?'<span style="font-size:10px;color:var(--green);margin-left:4px;">✓</span>'
+        :'<span style="font-size:10px;color:var(--red);margin-left:4px;">'+Math.abs(remaining)+'日超過</span>')
+      +'</div>';
+  });
+  document.getElementById('shift-counter').innerHTML=counterHtml;
+
+  // テーブル生成
+  var weekDays=['日','月','火','水','木','金','土'];
+  var thead='<tr><th style="min-width:80px;position:sticky;left:0;background:var(--surface);z-index:2;padding:6px 8px;font-size:12px;border-bottom:.5px solid var(--border);border-right:.5px solid var(--border);">氏名</th>';
+  for(var d=1;d<=daysInMonth;d++){
+    var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
+    var isSun=dow===0,isSat=dow===6;
+    var dayColor=isSun?'color:var(--red)':isSat?'color:var(--blue)':'';
+    thead+='<th style="min-width:36px;padding:3px 2px;text-align:center;font-size:11px;border-bottom:.5px solid var(--border);border-right:.5px solid var(--border2);">'
+      +'<div style="'+dayColor+';font-weight:700;">'+d+'</div>'
+      +'<div style="font-size:9px;'+dayColor+';">'+weekDays[dow]+'</div>'
+      +'</th>';
+  }
+  thead+='<th style="min-width:50px;padding:6px 4px;text-align:center;font-size:11px;border-bottom:.5px solid var(--border);">公休数</th></tr>';
+
+  var tbody='';
+  SHIFT_MEMBERS.forEach(function(m){
+    var kyuCount=0;
+    tbody+='<tr>';
+    tbody+='<td style="position:sticky;left:0;background:var(--surface);z-index:1;padding:5px 8px;font-size:12px;font-weight:600;white-space:nowrap;border-right:.5px solid var(--border);border-bottom:.5px solid var(--border2);">'
+      +escHtml(m.name)
+      +(m.role?'<div style="font-size:9px;color:var(--t3);font-weight:400;">'+escHtml(m.role)+'</div>':'')
+      +'</td>';
+    for(var d=1;d<=daysInMonth;d++){
+      var code=(monthData[m.id]||{})[d]||'';
+      if(code==='休'||code==='有')kyuCount++;
+      var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
+      var isSun=dow===0,isSat=dow===6;
+      var cellBg=code&&SHIFT_CODES[code]?SHIFT_CODES[code].color:isSun?'#fff5f5':isSat?'#f0f7ff':'';
+      var cellText=code&&SHIFT_CODES[code]?SHIFT_CODES[code].text:'';
+      tbody+='<td onclick="openShiftCellPopup(\''+m.id+'\','+d+',event)" style="min-width:36px;height:36px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;'
+        +(cellBg?'background:'+cellBg+';':'')
+        +(cellText?'color:'+cellText+';':'')
+        +'border-right:.5px solid var(--border2);border-bottom:.5px solid var(--border2);vertical-align:middle;">'
+        +escHtml(code)+'</td>';
+    }
+    // 公休カウント列
+    var remaining=9-kyuCount;
+    var countColor=!m.kyukei?'color:var(--t3)':remaining<0?'color:var(--red)':remaining===0?'color:var(--green)':'color:var(--amber)';
+    tbody+='<td style="text-align:center;font-size:12px;font-weight:700;'+countColor+';border-bottom:.5px solid var(--border2);">'
+      +(m.kyukei?kyuCount+'/9':'—')+'</td>';
+    tbody+='</tr>';
+  });
+
+  // 日別出勤人数行
+  tbody+='<tr style="background:var(--bg2);">';
+  tbody+='<td style="position:sticky;left:0;background:var(--bg2);z-index:1;padding:5px 8px;font-size:11px;font-weight:700;color:var(--t2);border-right:.5px solid var(--border);">出勤人数</td>';
+  for(var d=1;d<=daysInMonth;d++){
+    var count=0;
+    SHIFT_MEMBERS.forEach(function(m){
+      var code=(monthData[m.id]||{})[d]||'';
+      if(code&&code!=='休'&&code!=='有'&&code!=='')count++;
+    });
+    var countBg=count<=1?'background:#fee2e2':count<=2?'background:#fef9c3':'';
+    tbody+='<td style="text-align:center;font-size:11px;font-weight:700;'+countBg+';border-right:.5px solid var(--border2);">'+count+'</td>';
+  }
+  tbody+='<td></td></tr>';
+
+  document.getElementById('shift-table-wrap').innerHTML=
+    '<table style="border-collapse:collapse;border:.5px solid var(--border);border-radius:8px;overflow:hidden;min-width:100%;">'
+    +'<thead style="background:var(--bg2);">'+thead+'</thead>'
+    +'<tbody>'+tbody+'</tbody>'
+    +'</table>';
+
+  // 凡例
+  var legendHtml='';
+  Object.keys(SHIFT_CODES).forEach(function(k){
+    var c=SHIFT_CODES[k];
+    legendHtml+='<span style="padding:2px 8px;border-radius:10px;background:'+c.color+';color:'+c.text+';font-weight:700;">'
+      +c.label+' <span style="font-weight:400;font-size:9px;">'+c.time+'</span></span>';
+  });
+  document.getElementById('shift-code-legend').innerHTML=legendHtml;
+}
+
+// セル入力ポップアップ
+var _shiftCellTarget={};
+function openShiftCellPopup(memberId,day,e){
+  e.stopPropagation();
+  _shiftCellTarget={memberId:memberId,day:day};
+  var html='<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:220px;">';
+  SHIFT_CODE_KEYS.forEach(function(k){
+    var c=SHIFT_CODES[k];
+    if(k===''){
+      html+='<button onclick="setShiftCell(\'\')" style="padding:4px 10px;border-radius:8px;border:.5px solid var(--border2);background:var(--surface2);font-size:12px;cursor:pointer;color:var(--t2);">クリア</button>';
+    }else{
+      html+='<button onclick="setShiftCell(\''+k+'\')" style="padding:4px 10px;border-radius:8px;border:none;background:'+c.color+';color:'+c.text+';font-weight:700;font-size:13px;cursor:pointer;">'+k+'</button>';
+    }
+  });
+  html+='</div>';
+  var popup=document.getElementById('shift-cell-popup');
+  document.getElementById('shift-cell-popup-inner').innerHTML=html;
+  popup.style.display='block';
+  var x=Math.min(e.clientX,window.innerWidth-240);
+  var y=Math.min(e.clientY+8,window.innerHeight-200);
+  popup.style.left=x+'px';
+  popup.style.top=y+'px';
+}
+function setShiftCell(code){
+  var monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
+  if(!SHIFT_DATA[monthKey])SHIFT_DATA[monthKey]={};
+  if(!SHIFT_DATA[monthKey][_shiftCellTarget.memberId])SHIFT_DATA[monthKey][_shiftCellTarget.memberId]={};
+  if(code===''){
+    delete SHIFT_DATA[monthKey][_shiftCellTarget.memberId][_shiftCellTarget.day];
+  }else{
+    SHIFT_DATA[monthKey][_shiftCellTarget.memberId][_shiftCellTarget.day]=code;
+  }
+  document.getElementById('shift-cell-popup').style.display='none';
+  _saveShiftData();
+  _renderShift();
+}
+document.addEventListener('click',function(e){
+  var popup=document.getElementById('shift-cell-popup');
+  if(popup&&!popup.contains(e.target))popup.style.display='none';
+});
+
+// メンバー管理
+function openShiftMemberManager(){
+  _renderMemberList();
+  document.getElementById('shift-member-modal').style.display='flex';
+}
+function closeShiftMemberManager(){
+  document.getElementById('shift-member-modal').style.display='none';
+  _renderShift();
+}
+function _renderMemberList(){
+  var html='';
+  SHIFT_MEMBERS.forEach(function(m,i){
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);border-radius:10px;">'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:13px;font-weight:700;">'+escHtml(m.name)+'</div>'
+      +'<div style="font-size:11px;color:var(--t2);">'+escHtml(m.role||'')+'　'+(m.kyukei?'<span style="color:var(--blue);font-weight:600;">公休9日対象</span>':'<span style="color:var(--t3);">カウント対象外</span>')+'</div>'
+      +'</div>'
+      +'<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;">'
+      +'<input type="checkbox" '+(m.kyukei?'checked':'')+' onchange="toggleShiftMemberKyukei('+i+',this.checked)"> 公休</label>'
+      +'<button onclick="removeShiftMember('+i+')" style="padding:3px 8px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--red);font-size:11px;cursor:pointer;">削除</button>'
+      +'</div>';
+  });
+  document.getElementById('shift-member-list').innerHTML=html||'<div style="font-size:13px;color:var(--t3);">メンバーがいません</div>';
+}
+function toggleShiftMemberKyukei(idx,val){
+  SHIFT_MEMBERS[idx].kyukei=val;
+  _saveShiftData();
+  _renderMemberList();
+}
+function removeShiftMember(idx){
+  if(!confirm(SHIFT_MEMBERS[idx].name+'を削除しますか？'))return;
+  SHIFT_MEMBERS.splice(idx,1);
+  _saveShiftData();
+  _renderMemberList();
+}
+function addShiftMember(){
+  var name=document.getElementById('shift-new-name').value.trim();
+  var role=document.getElementById('shift-new-role').value.trim();
+  var kyukei=document.getElementById('shift-new-kyukei').checked;
+  if(!name){alert('氏名を入力してください');return;}
+  var id='m'+Date.now();
+  SHIFT_MEMBERS.push({id:id,name:name,role:role,kyukei:kyukei});
+  document.getElementById('shift-new-name').value='';
+  document.getElementById('shift-new-role').value='';
+  document.getElementById('shift-new-kyukei').checked=true;
+  _saveShiftData();
+  _renderMemberList();
+}
+
+// 印刷
+function printShift(){
+  var daysInMonth=new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();
+  var monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
+  var monthData=SHIFT_DATA[monthKey]||{};
+  var weekDays=['日','月','火','水','木','金','土'];
+
+  var thead='<tr><th style="min-width:80px;padding:4px 6px;font-size:10px;border:1px solid #ccc;background:#f8f8f8;">氏名</th>';
+  for(var d=1;d<=daysInMonth;d++){
+    var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
+    var isSun=dow===0,isSat=dow===6;
+    var dc=isSun?'color:#e11d48':isSat?'color:#1d4ed8':'';
+    thead+='<th style="min-width:28px;padding:2px;text-align:center;font-size:9px;border:1px solid #ccc;background:#f8f8f8;'+dc+'">'+d+'<br>'+weekDays[dow]+'</th>';
+  }
+  thead+='<th style="min-width:40px;padding:4px;text-align:center;font-size:10px;border:1px solid #ccc;background:#f8f8f8;">公休</th></tr>';
+
+  var tbody='';
+  SHIFT_MEMBERS.forEach(function(m){
+    var kyuCount=0;
+    tbody+='<tr>';
+    tbody+='<td style="padding:4px 6px;font-size:10px;font-weight:700;border:1px solid #ccc;white-space:nowrap;">'+m.name+'<br><span style="font-size:8px;font-weight:400;color:#888;">'+m.role+'</span></td>';
+    for(var d=1;d<=daysInMonth;d++){
+      var code=(monthData[m.id]||{})[d]||'';
+      if(code==='休'||code==='有')kyuCount++;
+      var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
+      var bg=code&&SHIFT_CODES[code]?SHIFT_CODES[code].color:dow===0?'#fff5f5':dow===6?'#f0f7ff':'#fff';
+      var tc=code&&SHIFT_CODES[code]?SHIFT_CODES[code].text:'#333';
+      tbody+='<td style="text-align:center;font-size:10px;font-weight:700;background:'+bg+';color:'+tc+';border:1px solid #ccc;padding:2px;">'+code+'</td>';
+    }
+    tbody+='<td style="text-align:center;font-size:10px;font-weight:700;border:1px solid #ccc;'+(m.kyukei?(kyuCount<9?'color:#d97706':kyuCount>9?'color:#dc2626':'color:#16a34a'):'color:#aaa')+';">'+(m.kyukei?kyuCount+'/9':'—')+'</td>';
+    tbody+='</tr>';
+  });
+
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    +'<style>@page{size:A3 landscape;margin:8mm;}body{margin:0;font-family:sans-serif;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ccc;}</style>'
+    +'</head><body>'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">'
+    +'<h2 style="margin:0;font-size:14px;">フロント　勤務シフト表　'+SHIFT_YEAR+'年'+SHIFT_MONTH+'月</h2>'
+    +'<span style="font-size:10px;color:#888;">印刷日：'+new Date().toLocaleDateString('ja-JP')+'</span>'
+    +'</div>'
+    +'<table>'+thead+tbody+'</table>'
+    +'</body></html>';
+
+  var w=window.open('','_blank','width=1200,height=800');
+  w.document.write(html);
+  w.document.close();
+  w.onload=function(){w.print();};
+}
+</script>
+
 </body>
 </html>
