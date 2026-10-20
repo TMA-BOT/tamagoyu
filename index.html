@@ -8473,18 +8473,21 @@ function _buildOshiHtml(forPrint){
     // 縦書きでは料理名＋内容を1つのブロックにまとめるのが安定
     var coursesHtml='';
     _oshiEditData.courses.forEach(function(c){
-      // 改行を全角スペースに変換してインライン化
-      var contentVert=c.content.replace(/\n/g,'　');
+      var lines=c.content.split('\n');
+      // 料理名 + 各行をtableセルで縦並びに（上から順に確実に配置）
+      var rows='<tr><td style="font-weight:700;color:'+d.accent+';letter-spacing:1px;font-size:'+(pw?9:7.5)+'px;padding-bottom:'+(pw?4:3)+'px;border-bottom:1px solid '+d.border+'88;white-space:nowrap;">'+escHtml(c.name)+'</td></tr>';
+      lines.forEach(function(l){
+        rows+='<tr><td style="font-size:'+(pw?8:7)+'px;color:#333;line-height:1.6;white-space:nowrap;padding-top:1px;">'+escHtml(l)+'</td></tr>';
+      });
       coursesHtml+='<div style="'
         +'writing-mode:vertical-rl;text-orientation:mixed;'
         +'padding:0 '+(pw?3:2)+'px;'
         +'border-left:1px solid '+d.border+'55;'
         +'flex-shrink:0;'
-        +'font-size:'+(pw?9:7.5)+'px;color:#333;line-height:1.8;'
         +'">'
-        // 料理名：span で太字・アクセント色、直後に内容を続ける
-        +'<span style="font-weight:700;color:'+d.accent+';letter-spacing:1px;padding-bottom:'+(pw?3:2)+'px;border-bottom:1px solid '+d.border+'88;">'+escHtml(c.name)+'</span>'
-        +'<span style="font-size:'+(pw?8:7)+'px;margin-top:'+(pw?4:3)+'px;display:inline-block;">'+escHtml(contentVert)+'</span>'
+        +'<table style="border-collapse:collapse;table-layout:fixed;">'
+        +'<tbody>'+rows+'</tbody>'
+        +'</table>'
         +'</div>';
     });
 
@@ -8506,7 +8509,7 @@ function _buildOshiHtml(forPrint){
       +'background:'+d.bg+';border:2px solid '+d.border+';'
       +'width:'+w+';height:'+h+';'
       +'padding:'+(pw?7:8)+'px;box-sizing:border-box;'
-      +'display:flex;flex-direction:row;align-items:stretch;'
+      +'display:flex;flex-direction:row;align-items:flex-start;'
       +'direction:rtl;'   // 右→左に並べる
       +'overflow:hidden;'
       +'font-family:\'游明朝\',\'Yu Mincho\',\'HGS明朝E\',serif;'
