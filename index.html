@@ -8456,42 +8456,77 @@ function _renderOshiEdit(){
 
 function _buildOshiHtml(forPrint){
   const d=OSHI_DESIGNS[_oshiCurrentDesign];
-  // 短冊1枚分のHTML（縦書き）を生成
+  // 短冊1枚分のHTML
+  // レイアウト：A4横向き上半分 = 短冊（横210mm × 縦148mm）
+  // 全体が writing-mode:vertical-rl で右→左にコースが流れる
   function makeShortaku(){
-    let courses='';
+    // タイトル（御献立）
+    var titleHtml='<div style="'
+      +'writing-mode:vertical-rl;'
+      +'font-size:'+(forPrint?'18':'13')+'px;'
+      +'font-weight:700;'
+      +'color:'+d.accent+';'
+      +'letter-spacing:6px;'
+      +'padding:'+(forPrint?'0 6mm':'0 6px')+';'
+      +'border-right:2px solid '+d.border+';'
+      +'margin-right:'+(forPrint?'4mm':'4px')+';'
+      +'">'+escHtml(_oshiEditData.title)+'</div>';
+
+    // 各コース
+    var coursesHtml='';
     _oshiEditData.courses.forEach(function(c){
-      const lines=c.content.split('\n').map(function(l){return '<div style="margin-bottom:2px;">'+escHtml(l)+'</div>';}).join('');
-      courses+='<div style="display:flex;gap:0;margin-bottom:10px;">'
-        +'<div style="writing-mode:vertical-rl;font-size:'+(forPrint?'10':'9')+'px;font-weight:700;color:'+d.accent+';min-width:24px;letter-spacing:2px;">'+escHtml(c.name)+'</div>'
-        +'<div style="writing-mode:vertical-rl;font-size:'+(forPrint?'10':'9')+'px;color:#333;line-height:1.7;padding-left:4px;">'+escHtml(c.content.replace(/\n/g,'　'))+'</div>'
+      var contentVert=c.content.replace(/\n/g,'　');
+      coursesHtml+='<div style="'
+        +'writing-mode:vertical-rl;'
+        +'padding:'+(forPrint?'0 3mm':'0 4px')+';'
+        +'border-right:1px solid '+d.border+'44;'
+        +'display:flex;flex-direction:column;'
+        +'">'
+        +'<div style="font-size:'+(forPrint?'10':'8')+'px;font-weight:700;color:'+d.accent+';letter-spacing:2px;margin-bottom:'+(forPrint?'2mm':'3px')+';">'+escHtml(c.name)+'</div>'
+        +'<div style="font-size:'+(forPrint?'9':'7.5')+'px;color:#333;line-height:1.8;flex:1;">'+escHtml(contentVert)+'</div>'
         +'</div>';
     });
-    const noteLines=_oshiEditData.note.split('\n').map(function(l){return '<div>'+escHtml(l)+'</div>';}).join('');
+
+    // 備考・料理長（左端）
+    var noteLines=_oshiEditData.note.split('\n').map(function(l){return escHtml(l);}).join('　');
+    var noteHtml='<div style="'
+      +'writing-mode:vertical-rl;'
+      +'font-size:'+(forPrint?'7':'6')+'px;'
+      +'color:#666;'
+      +'line-height:1.6;'
+      +'padding:'+(forPrint?'0 3mm':'0 4px')+';'
+      +'margin-left:auto;'
+      +'display:flex;flex-direction:column;gap:'+(forPrint?'2mm':'3px')+';'
+      +'">'
+      +'<div>'+noteLines+'</div>'
+      +'<div style="color:'+d.accent+';font-weight:700;">'+escHtml(_oshiEditData.chef)+'　吉日</div>'
+      +'</div>';
+
     return '<div style="'
       +'background:'+d.bg+';'
       +'border:2px solid '+d.border+';'
-      +'width:'+(forPrint?'99mm':'140px')+';'
-      +'min-height:'+(forPrint?'196mm':'276px')+';'
-      +'padding:'+(forPrint?'10mm 8mm':'14px 10px')+';'
+      +'width:'+(forPrint?'190mm':'520px')+';'
+      +'height:'+(forPrint?'130mm':'178px')+';'
+      +'padding:'+(forPrint?'8mm':'10px')+';'
       +'box-sizing:border-box;'
-      +'display:flex;flex-direction:column;'
+      +'display:flex;'
+      +'flex-direction:row;'
+      +'overflow:hidden;'
       +'font-family:\'游明朝\',\'Yu Mincho\',\'HGS明朝E\',serif;'
-      +'">'
-      +'<div style="text-align:center;font-size:'+(forPrint?'16':'13')+'px;font-weight:700;color:'+d.accent+';letter-spacing:4px;margin-bottom:'+(forPrint?'6mm':'8px')+';">'+escHtml(_oshiEditData.title)+'</div>'
-      +'<div style="flex:1;writing-mode:vertical-rl;display:flex;flex-direction:row;justify-content:flex-start;gap:6px;overflow:hidden;">'+courses+'</div>'
-      +'<div style="margin-top:'+(forPrint?'4mm':'6px')+';border-top:1px solid '+d.border+';padding-top:'+(forPrint?'3mm':'4px')+';font-size:'+(forPrint?'7':'7')+'px;color:#666;line-height:1.6;">'+noteLines+'</div>'
-      +'<div style="text-align:right;font-size:'+(forPrint?'8':'8')+'px;color:'+d.accent+';margin-top:'+(forPrint?'2mm':'4px')+';">'+escHtml(_oshiEditData.chef)+'　吉日</div>'
-      +'</div>';
+      +'">'+titleHtml+coursesHtml+noteHtml+'</div>';
   }
   const s=makeShortaku();
   if(forPrint){
     return '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-      +'<style>@page{size:A4 portrait;margin:8mm;}body{margin:0;display:flex;flex-direction:column;align-items:center;gap:4mm;padding:0;}'
-      +'*{box-sizing:border-box;}</style></head><body>'
+      +'<style>'
+      +'@page{size:A4 portrait;margin:10mm;}'
+      +'body{margin:0;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:space-around;height:277mm;}'
+      +'*{box-sizing:border-box;}'
+      +'</style></head><body>'
       +s+s
       +'</body></html>';
   }else{
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px;">'+s+s+'</div>';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px;overflow-x:auto;">'+s+s+'</div>';
   }
 }
 
