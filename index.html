@@ -8472,24 +8472,32 @@ function _buildOshiHtml(forPrint){
     // 各コース（direction:rtlで右から並ぶ）
     // 縦書きでは料理名＋内容を1つのブロックにまとめるのが安定
     var coursesHtml='';
+    var h2=pw?'114mm':'144px'; // 短冊内高さ（paddingを引いた実効高さ）
     _oshiEditData.courses.forEach(function(c){
-      var lines=c.content.split('\n');
-      // 料理名 + 各行をtableセルで縦並びに（上から順に確実に配置）
-      var rows='<tr><td style="font-weight:700;color:'+d.accent+';letter-spacing:1px;font-size:'+(pw?9:7.5)+'px;padding-bottom:'+(pw?4:3)+'px;border-bottom:1px solid '+d.border+'88;white-space:nowrap;">'+escHtml(c.name)+'</td></tr>';
-      lines.forEach(function(l){
-        rows+='<tr><td style="font-size:'+(pw?8:7)+'px;color:#333;line-height:1.6;white-space:nowrap;padding-top:1px;">'+escHtml(l)+'</td></tr>';
-      });
+      var contentVert=c.content.replace(/\n/g,'　');
+      // ジャンル名：position:absoluteで上端固定
+      var nameHtml='<div style="'
+        +'position:absolute;top:0;left:0;right:0;'
+        +'font-size:'+(pw?9:7.5)+'px;font-weight:700;color:'+d.accent+';'
+        +'letter-spacing:1px;white-space:nowrap;'
+        +'border-bottom:1px solid '+d.border+'88;'
+        +'padding-bottom:'+(pw?3:2)+'px;'
+        +'">'+escHtml(c.name)+'</div>';
+      // メニュー内容：上部にジャンル名分のスペースを確保
+      var nameH=pw?16:13; // ジャンル名の高さ分（縦書きなので幅）
+      var contentHtml='<div style="'
+        +'font-size:'+(pw?8:7)+'px;color:#333;line-height:1.8;'
+        +'margin-top:'+(nameH+4)+'px;'
+        +'white-space:nowrap;'
+        +'">'+escHtml(contentVert)+'</div>';
       coursesHtml+='<div style="'
         +'writing-mode:vertical-rl;text-orientation:mixed;'
         +'padding:0 '+(pw?3:2)+'px;'
         +'border-left:1px solid '+d.border+'55;'
         +'flex-shrink:0;'
-        +'display:flex;align-items:flex-start;'   // 縦書きflexで内容を上端に寄せる
-        +'">'
-        +'<table style="border-collapse:collapse;table-layout:fixed;margin-bottom:auto;">'
-        +'<tbody>'+rows+'</tbody>'
-        +'</table>'
-        +'</div>';
+        +'position:relative;'
+        +'height:'+h2+';'
+        +'">'+nameHtml+contentHtml+'</div>';
     });
 
     // 備考・料理長（rtlなので右端＝左端に来る）
@@ -8510,7 +8518,7 @@ function _buildOshiHtml(forPrint){
       +'background:'+d.bg+';border:2px solid '+d.border+';'
       +'width:'+w+';height:'+h+';'
       +'padding:'+(pw?7:8)+'px;box-sizing:border-box;'
-      +'display:flex;flex-direction:row;align-items:stretch;'
+      +'display:flex;flex-direction:row;align-items:flex-start;'
       +'direction:rtl;'   // 右→左に並べる
       +'overflow:hidden;'
       +'font-family:\'游明朝\',\'Yu Mincho\',\'HGS明朝E\',serif;'
