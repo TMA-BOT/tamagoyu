@@ -9067,6 +9067,7 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:.5px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;">
         <div style="font-size:17px;font-weight:700;">📅 シフト管理（フロント）</div>
         <div style="display:flex;gap:8px;align-items:center;">
+          <button onclick="openShiftCsvImport()" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">📂 予約CSV取込</button>
           <button onclick="openShiftNewTab()" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">↗ 別タブで開く</button>
           <button onclick="printShift()" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">🖨 印刷</button>
           <button onclick="closeShiftManager()" style="width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:18px;cursor:pointer;color:var(--t2);">×</button>
@@ -9221,6 +9222,159 @@ function closeShiftManager(){
   document.body.style.overflow='';
   document.getElementById('shift-cell-popup').style.display='none';
 }
+// ===== シフト用 予約CSV取込 =====
+function openShiftCsvImport(){
+  // 既存モーダルがあれば削除
+  var old=document.getElementById('shift-csv-modal');
+  if(old)old.remove();
+  var modal=document.createElement('div');
+  modal.id='shift-csv-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML=
+    '<div style="background:var(--surface);border-radius:var(--rl);width:100%;max-width:440px;padding:20px;box-shadow:0 8px 40px rgba(0,0,0,.3);">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">'
+    +'<div style="font-size:16px;font-weight:700;">📂 予約CSV取込</div>'
+    +'<button onclick="document.getElementById(\'shift-csv-modal\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2);">×</button>'
+    +'</div>'
+    +'<div style="font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6;">'
+    +'予約システム（PMS）からエクスポートしたCSVファイルを選択してください。<br>'
+    +'<span style="color:var(--green);font-weight:600;">宿泊人数のみ</span>を取り込みます。名前・電話番号・住所などの個人情報は取り込みません。</div>'
+    +'<div style="margin-bottom:12px;">'
+    +'<div style="font-size:11px;color:var(--t3);margin-bottom:4px;">取込対象月</div>'
+    +'<div style="font-size:14px;font-weight:700;color:var(--text);" id="shift-csv-target-month"></div>'
+    +'</div>'
+    +'<label style="display:block;padding:16px;border:1.5px dashed var(--border2);border-radius:var(--r);text-align:center;cursor:pointer;background:var(--surface2);margin-bottom:12px;">'
+    +'<div style="font-size:24px;">📁</div>'
+    +'<div style="font-size:13px;font-weight:600;color:var(--blue);margin-top:4px;">CSVファイルを選択</div>'
+    +'<div style="font-size:10px;color:var(--t3);margin-top:2px;" id="shift-csv-filename">ファイル未選択</div>'
+    +'<input type="file" id="shift-csv-file" accept=".csv" style="display:none;" onchange="onShiftCsvSelected(this)">'
+    +'</label>'
+    +'<div id="shift-csv-preview" style="display:none;margin-bottom:12px;">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;" id="shift-csv-preview-info"></div>'
+    +'<div id="shift-csv-preview-list" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;"></div>'
+    +'</div>'
+    +'<button id="shift-csv-import-btn" onclick="doShiftCsvImport()" style="display:none;width:100%;padding:12px;border-radius:var(--r);border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">✅ 入込数として取り込む</button>'
+    +'</div>';
+  document.body.appendChild(modal);
+  // 対象月表示
+  var m=document.getElementById('shift-csv-target-month');
+  if(m)m.textContent=SHIFT_YEAR+'年'+SHIFT_MONTH+'月';
+}
+var _shiftCsvParsed={}; // {1:45, 2:32, ...} 日→人数
+function onShiftCsvSelected(input){
+  var file=input.files[0];
+  if(!file)return;
+  document.getElementById('shift-csv-filename').textContent=file.name;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var buf=e.target.result;
+    var text;
+    try{var dec=new TextDecoder('shift-jis');text=dec.decode(buf);}
+    catch(err){text=new TextDecoder('utf-8').decode(buf);}
+    parseShiftCsvAndPreview(text);
+  };
+  reader.readAsArrayBuffer(file);
+}
+function parseShiftCsvAndPreview(text){
+  // 既存のparseCsvRowと同じ列定義を使用
+  // colDate=1(チェックイン日), colAdult=5(大人), colCa=7(子A), colCb=8(子B), colNights=14(泊数), colRoom=21(部屋番号)
+  var colDate=1,colAdult=5,colCa=7,colCb=8,colNights=14,colRoom=21;
+  var lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
+  // 対象月の日付キーを準備
+  var daysInMonth=new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();
+  var paxByDay={}; // day(1-31) → 人数
+  for(var di=1;di<=daysInMonth;di++)paxByDay[di]=0;
+  var mm=String(SHIFT_MONTH).padStart(2,'0');
+  var importCount=0;
+  for(var i=1;i<lines.length;i++){
+    var row=parseCsvRow(lines[i]); // 既存関数を流用
+    if(row.length<colRoom+1)continue;
+    var rowDate=(row[colDate]||'').trim();
+    if(!rowDate)continue;
+    var dp=rowDate.split('/');
+    if(dp.length<3)continue;
+    var yyyy,mm2,dd2;
+    if(dp[0].length===4){yyyy=dp[0];mm2=dp[1].padStart(2,'0');dd2=dp[2].padStart(2,'0');}
+    else{yyyy='20'+dp[0];mm2=dp[1].padStart(2,'0');dd2=dp[2].padStart(2,'0');}
+    // 部屋番号チェック（個人情報は一切参照しない）
+    var room=(row[colRoom]||'').trim();
+    if(!room||room==='0'||isNaN(parseInt(room)))continue;
+    var adult=parseInt(row[colAdult])||0;
+    var ca=parseInt(row[colCa])||0;
+    var cb=parseInt(row[colCb])||0;
+    var nights=parseInt(row[colNights])||1;
+    var pax=adult+ca+cb;
+    if(pax<=0)continue;
+    // チェックイン日からnights泊分、各日に人数を加算
+    for(var n=0;n<nights;n++){
+      var stayDate=new Date(parseInt(yyyy),parseInt(mm2)-1,parseInt(dd2));
+      stayDate.setDate(stayDate.getDate()+n);
+      var sy=stayDate.getFullYear();
+      var sm=stayDate.getMonth()+1;
+      var sd=stayDate.getDate();
+      if(sy===SHIFT_YEAR&&sm===SHIFT_MONTH){
+        paxByDay[sd]=(paxByDay[sd]||0)+pax;
+        if(n===0)importCount++;
+      }
+    }
+  }
+  _shiftCsvParsed=paxByDay;
+  // プレビュー表示
+  var preview=document.getElementById('shift-csv-preview');
+  var infoEl=document.getElementById('shift-csv-preview-info');
+  var listEl=document.getElementById('shift-csv-preview-list');
+  var btnEl=document.getElementById('shift-csv-import-btn');
+  if(!preview||!infoEl||!listEl)return;
+  if(importCount===0){
+    infoEl.textContent=SHIFT_YEAR+'年'+SHIFT_MONTH+'月のデータが見つかりませんでした';
+    listEl.innerHTML='';
+    preview.style.display='';
+    if(btnEl)btnEl.style.display='none';
+    return;
+  }
+  var totalPax=0;
+  var rows=[];
+  for(var day=1;day<=daysInMonth;day++){
+    var p=paxByDay[day]||0;
+    totalPax+=p;
+    var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,day).getDay();
+    var dowLabel=['日','月','火','水','木','金','土'][dow];
+    var rec=_recommendedStaff(p);
+    var color=p>0?rec.color:'var(--t3)';
+    rows.push('<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:var(--r);font-size:12px;">'
+      +'<span style="min-width:48px;font-weight:600;">'+day+'日('+dowLabel+')</span>'
+      +(p>0?'<span style="color:'+color+';font-weight:700;">'+p+'名</span>':'<span style="color:var(--t3);">0名</span>')
+      +(p>0?'<span style="color:var(--t3);font-size:10px;">→ 推奨'+rec.min+'名以上</span>':'')
+      +'</div>');
+  }
+  infoEl.textContent=SHIFT_YEAR+'年'+SHIFT_MONTH+'月 計'+totalPax+'名（'+importCount+'件の予約）';
+  listEl.innerHTML=rows.join('');
+  preview.style.display='';
+  if(btnEl)btnEl.style.display='';
+}
+function doShiftCsvImport(){
+  var monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
+  if(!SHIFT_OCUPANCY[monthKey])SHIFT_OCUPANCY[monthKey]={};
+  var daysInMonth=new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();
+  var updated=0;
+  for(var day=1;day<=daysInMonth;day++){
+    var pax=_shiftCsvParsed[day]||0;
+    SHIFT_OCUPANCY[monthKey][day]={pax:pax,manual:true}; // manual:trueで自動取得より優先
+    updated++;
+  }
+  // Firebase保存
+  var db=window._db;
+  if(db){
+    var ref=window._dbRef(db,'shift_front');
+    window._dbSet(ref,{members:SHIFT_MEMBERS,data:SHIFT_DATA,ocupancy:SHIFT_OCUPANCY})
+      .catch(function(){});
+  }
+  _renderShift();
+  var modal=document.getElementById('shift-csv-modal');
+  if(modal)modal.remove();
+  showToast('入込数を取り込みました（'+SHIFT_YEAR+'年'+SHIFT_MONTH+'月）');
+}
+
 function openShiftNewTab(){
   // 現在のシフトデータをlocalStorageに保存して別タブで開く
   localStorage.setItem('_shiftStandalone',JSON.stringify({
