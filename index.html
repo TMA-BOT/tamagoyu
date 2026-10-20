@@ -8470,8 +8470,8 @@ function _buildOshiHtml(forPrint){
 
   function makeShortaku(pw){
     var ff='\'游明朝\',\'Yu Mincho\',\'HGS明朝E\',serif';
-    var h=pw?'130mm':'170px';
-    var pad=pw?'8mm':'8px';
+    var h=pw?'115mm':'170px';
+    var pad=pw?'6mm':'8px';
 
     // タイトル「御献立」
     var titleHtml='<div style="'
@@ -8512,7 +8512,7 @@ function _buildOshiHtml(forPrint){
 
     return '<div style="'
       +'background:'+d.bg+';border:2px solid '+d.border+';'
-      +'width:'+(pw?'190mm':'100%')+';height:'+h+';'
+      +'width:'+(pw?'277mm':'100%')+';height:'+h+';'
       +'padding:'+pad+';box-sizing:border-box;'
       +'display:flex;flex-direction:row;direction:rtl;'
       +'align-items:flex-start;justify-content:center;gap:'+(pw?'2mm':'4px')+';'
@@ -8524,7 +8524,7 @@ function _buildOshiHtml(forPrint){
   if(forPrint){
     var s=makeShortaku(true);
     return '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-      +'<style>@page{size:A4 landscape;margin:10mm;}body{margin:0;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:space-around;height:190mm;}*{box-sizing:border-box;}</style>'
+      +'<style>@page{size:A4 landscape;margin:10mm;}body{margin:0;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;height:190mm;}*{box-sizing:border-box;}</style>'
       +'</head><body>'+s+s+'</body></html>';
   }else{
     return '<div style="padding:8px;">'+makeShortaku(false)+'</div>';
@@ -8544,8 +8544,8 @@ function _oshiOpenModal(){
   // 印刷用HTML（2枚並び）をiframeで表示
   const printHtml=_buildOshiHtml(true);
   // A4横（297mm×210mm）をビューポートに収まるようscale
-  const maxW=Math.min(window.innerWidth-48, 900);
-  const scale=maxW/(297*3.7795); // 297mm→px (横)
+  const maxW=Math.min(window.innerWidth-48, 1100);
+  const scale=maxW/(297*3.7795); // 297mm→px (A4横幅)
   const iframeW=Math.round(297*3.7795);
   const iframeH=Math.round(210*3.7795);
   content.innerHTML='<div style="overflow:hidden;">'
