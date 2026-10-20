@@ -9134,6 +9134,7 @@ var SHIFT_YEAR=new Date().getFullYear();
 var SHIFT_MONTH=new Date().getMonth()+1;
 var SHIFT_DATA={};// {year_month: {memberId: {day: code}}}
 var SHIFT_MEMBERS=[];// [{id,name,role,kyukei}]
+var SHIFT_OCUPANCY={};// {year_month: {day: {pax:n, manual:bool}}} 入込データ
 var _shiftLoaded=false;
 
 var SHIFT_CODES={
@@ -9312,14 +9313,72 @@ function _loadShiftData(){
     const v=snap.exists()?snap.val():{};
     SHIFT_MEMBERS=v.members||_defaultShiftMembers();
     SHIFT_DATA=v.data||{};
+    SHIFT_OCUPANCY=v.ocupancy||{};
     _shiftLoaded=true;
-    _renderShift();
+    _loadOcupancyFromDates();// Firebase日別データから入込数を自動取得
   }).catch(function(){
     SHIFT_MEMBERS=_defaultShiftMembers();
     SHIFT_DATA={};
+    SHIFT_OCUPANCY={};
     _shiftLoaded=true;
     _renderShift();
   });
+}
+
+// Firebase dates/YYYY-MM-DD から月全体の宿泊人数を取得
+function _loadOcupancyFromDates(){
+  const db=window._db;
+  if(!db){_renderShift();return;}
+  const daysInMonth=new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();
+  const monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
+  var promises=[];
+  var days=[];
+  for(var d=1;d<=daysInMonth;d++){
+    // 手動上書きがある日はスキップ
+    if(SHIFT_OCUPANCY[monthKey]&&SHIFT_OCUPANCY[monthKey][d]&&SHIFT_OCUPANCY[monthKey][d].manual)continue;
+    var mm=String(SHIFT_MONTH).padStart(2,'0');
+    var dd=String(d).padStart(2,'0');
+    var dateStr=SHIFT_YEAR+'-'+mm+'-'+dd;
+    days.push({d:d,dateStr:dateStr});
+    promises.push(window._dbGet(window._dbRef(db,'dates/'+dateStr)));
+  }
+  if(promises.length===0){_renderShift();return;}
+  Promise.all(promises).then(function(snaps){
+    if(!SHIFT_OCUPANCY[monthKey])SHIFT_OCUPANCY[monthKey]={};
+    snaps.forEach(function(snap,i){
+      var d=days[i].d;
+      var pax=0;
+      if(snap.exists()){
+        var guests=snap.val().guests||[];
+        guests.forEach(function(g){pax+=((g.man||0)+(g.woman||0)+(g.ca||0)+(g.cb||0));});
+      }
+      // 手動上書きがなければ自動データで更新
+      if(!SHIFT_OCUPANCY[monthKey][d]||!SHIFT_OCUPANCY[monthKey][d].manual){
+        SHIFT_OCUPANCY[monthKey][d]={pax:pax,manual:false};
+      }
+    });
+    _renderShift();
+  }).catch(function(){_renderShift();});
+}
+
+// 入込数を手動上書き
+function setShiftOcupancy(day,val){
+  var monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
+  if(!SHIFT_OCUPANCY[monthKey])SHIFT_OCUPANCY[monthKey]={};
+  var n=parseInt(val)||0;
+  SHIFT_OCUPANCY[monthKey][day]={pax:n,manual:n>0};// 0に戻したら自動に戻る
+  _saveShiftData();
+  _renderShift();
+}
+
+// 入込数から推奨スタッフ数を返す（旅館の規模：MAX約100名）
+function _recommendedStaff(pax){
+  if(pax<=0)return{min:1,label:'',color:''};
+  if(pax<=20)return{min:2,label:'少',color:'var(--green)'};
+  if(pax<=40)return{min:3,label:'普通',color:'var(--blue)'};
+  if(pax<=60)return{min:4,label:'多め',color:'var(--amber)'};
+  if(pax<=80)return{min:5,label:'繁忙',color:'#f97316'};
+  return{min:6,label:'満室級',color:'var(--red)'};
 }
 
 function _defaultShiftMembers(){
@@ -9339,7 +9398,7 @@ function _defaultShiftMembers(){
 function _saveShiftData(){
   const db=window._db;
   if(!db)return;
-  window._dbSet(window._dbRef(db,'shift_front'),{members:SHIFT_MEMBERS,data:SHIFT_DATA})
+  window._dbSet(window._dbRef(db,'shift_front'),{members:SHIFT_MEMBERS,data:SHIFT_DATA,ocupancy:SHIFT_OCUPANCY})
     .catch(function(e){console.error('shift save error',e);});
 }
 
@@ -9347,7 +9406,7 @@ function shiftChangeMonth(d){
   SHIFT_MONTH+=d;
   if(SHIFT_MONTH>12){SHIFT_MONTH=1;SHIFT_YEAR++;}
   if(SHIFT_MONTH<1){SHIFT_MONTH=12;SHIFT_YEAR--;}
-  _renderShift();
+  _loadOcupancyFromDates();// 月切り替え時も入込数を再取得
 }
 
 function _renderShift(){
@@ -9430,7 +9489,24 @@ function _renderShift(){
     tbody+='</tr>';
   });
 
-  // 日別出勤人数行
+  // 入込数行（クリックで手動入力）
+  var ocupMonthData=SHIFT_OCUPANCY[monthKey]||{};
+  tbody+='<tr style="background:#f0f9ff;">';
+  tbody+='<td style="position:sticky;left:0;background:#f0f9ff;z-index:1;padding:5px 8px;font-size:11px;font-weight:700;color:#0369a1;border-right:.5px solid var(--border);white-space:nowrap;">🛏 入込数<div style="font-size:8px;font-weight:400;color:var(--t3);">タップで修正</div></td>';
+  for(var d=1;d<=daysInMonth;d++){
+    var oc=ocupMonthData[d]||{pax:0};
+    var rec=_recommendedStaff(oc.pax);
+    var ocBg=rec.color?'background:'+rec.color+';opacity:.15;':'';
+    var isManual=oc.manual?'*':'';
+    tbody+='<td onclick="promptShiftOcupancy('+d+')" style="text-align:center;font-size:11px;cursor:pointer;border-right:.5px solid var(--border2);padding:2px;position:relative;">'
+      +(oc.pax>0?'<div style="font-weight:700;color:'+rec.color+';">'+oc.pax+'<span style="font-size:8px;">名'+isManual+'</span></div>'
+        +'<div style="font-size:8px;color:'+rec.color+';">'+rec.label+'</div>'
+        :'<div style="color:var(--t3);font-size:10px;">—</div>')
+      +'</td>';
+  }
+  tbody+='<td></td></tr>';
+
+  // 日別出勤人数行（入込推奨と比較して警告）
   tbody+='<tr style="background:var(--bg2);">';
   tbody+='<td style="position:sticky;left:0;background:var(--bg2);z-index:1;padding:5px 8px;font-size:11px;font-weight:700;color:var(--t2);border-right:.5px solid var(--border);">出勤人数</td>';
   for(var d=1;d<=daysInMonth;d++){
@@ -9439,8 +9515,14 @@ function _renderShift(){
       var code=(monthData[m.id]||{})[d]||'';
       if(code&&code!=='休'&&code!=='有'&&code!=='')count++;
     });
-    var countBg=count<=1?'background:#fee2e2':count<=2?'background:#fef9c3':'';
-    tbody+='<td style="text-align:center;font-size:11px;font-weight:700;'+countBg+';border-right:.5px solid var(--border2);">'+count+'</td>';
+    var oc2=ocupMonthData[d]||{pax:0};
+    var rec2=_recommendedStaff(oc2.pax);
+    var shortage=oc2.pax>0&&count<rec2.min;
+    var countBg=shortage?'background:#fee2e2;':count<=1?'background:#fee2e2;':count<=2?'background:#fef9c3;':'';
+    var countColor=shortage?'color:var(--red);':'';
+    tbody+='<td style="text-align:center;font-size:11px;font-weight:700;'+countBg+countColor+';border-right:.5px solid var(--border2);">'
+      +count+(shortage?'<div style="font-size:8px;color:var(--red);">不足</div>':'')
+      +'</td>';
   }
   tbody+='<td></td></tr>';
 
@@ -9458,6 +9540,15 @@ function _renderShift(){
       +c.label+' <span style="font-weight:400;font-size:9px;">'+c.time+'</span></span>';
   });
   document.getElementById('shift-code-legend').innerHTML=legendHtml;
+}
+
+// 入込数手動入力
+function promptShiftOcupancy(day){
+  var monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
+  var cur=(SHIFT_OCUPANCY[monthKey]&&SHIFT_OCUPANCY[monthKey][day])?SHIFT_OCUPANCY[monthKey][day].pax:0;
+  var val=prompt(SHIFT_MONTH+'月'+day+'日の入込人数を入力（0で自動取得に戻す）',cur||'');
+  if(val===null)return;
+  setShiftOcupancy(day,val);
 }
 
 // セル入力ポップアップ
