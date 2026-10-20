@@ -8475,7 +8475,7 @@ function _buildOshiHtml(forPrint){
 
     // タイトル「御献立」
     var titleHtml='<div style="'
-      +'writing-mode:vertical-rl;'
+      +'writing-mode:vertical-rl;direction:ltr;'
       +'font-size:'+(pw?'16px':'13px')+';font-weight:700;color:'+d.accent+';letter-spacing:4px;'
       +'padding:0 '+(pw?'10px':'8px')+';'
       +'border-left:2px solid '+d.border+';'
@@ -8488,22 +8488,20 @@ function _buildOshiHtml(forPrint){
     _oshiEditData.courses.forEach(function(c){
       var contentText=c.content.replace(/\n/g,'　');
       coursesHtml+='<div style="'
-        +'writing-mode:vertical-rl;'
+        +'writing-mode:vertical-rl;direction:ltr;'
         +'padding:0 '+(pw?'5px':'3px')+';'
         +'border-left:1px solid '+d.border+'44;'
         +'flex-shrink:0;'
         +'font-family:'+ff+';'
         +'">'
-        // ジャンル名：ブロック要素で上から始まる
         +'<div style="font-size:'+(pw?'9px':'7.5px')+';font-weight:700;color:'+d.accent+';white-space:nowrap;letter-spacing:1px;border-bottom:1px solid '+d.border+'66;padding-bottom:2px;margin-bottom:3px;">'+escHtml(c.name)+'</div>'
-        // 内容：ジャンル名の直後に続く
         +'<div style="font-size:'+(pw?'8px':'7px')+';color:#333;white-space:nowrap;line-height:1.7;">'+escHtml(contentText)+'</div>'
         +'</div>';
     });
 
     // 備考・料理長
     var noteHtml='<div style="'
-      +'writing-mode:vertical-rl;'
+      +'writing-mode:vertical-rl;direction:ltr;'
       +'font-size:'+(pw?'7px':'6px')+';color:#666;'
       +'padding:0 '+(pw?'3px':'2px')+';'
       +'flex-shrink:0;white-space:nowrap;'
