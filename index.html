@@ -9154,6 +9154,27 @@ var SHIFT_CODES={
 };
 var SHIFT_CODE_KEYS=['A','B','C','D','E','F','G','H','I','夜','休','有','講','〇',''];
 
+// 祝日データ（2025〜2027年）
+var SHIFT_HOLIDAYS={
+  '2025-1-1':'元日','2025-1-13':'成人の日','2025-2-11':'建国記念の日','2025-2-23':'天皇誕生日',
+  '2025-3-20':'春分の日','2025-4-29':'昭和の日','2025-5-3':'憲法記念日','2025-5-4':'みどりの日',
+  '2025-5-5':'こどもの日','2025-5-6':'振替休日','2025-7-21':'海の日','2025-8-11':'山の日',
+  '2025-9-15':'敬老の日','2025-9-23':'秋分の日','2025-10-13':'スポーツの日','2025-11-3':'文化の日',
+  '2025-11-23':'勤労感謝の日','2025-11-24':'振替休日',
+  '2026-1-1':'元日','2026-1-12':'成人の日','2026-2-11':'建国記念の日','2026-2-23':'天皇誕生日',
+  '2026-3-20':'春分の日','2026-4-29':'昭和の日','2026-5-3':'憲法記念日','2026-5-4':'みどりの日',
+  '2026-5-5':'こどもの日','2026-5-6':'振替休日','2026-7-20':'海の日','2026-8-11':'山の日',
+  '2026-9-21':'敬老の日','2026-9-22':'国民の休日','2026-9-23':'秋分の日','2026-10-12':'スポーツの日',
+  '2026-11-3':'文化の日','2026-11-23':'勤労感謝の日',
+  '2027-1-1':'元日','2027-1-11':'成人の日','2027-2-11':'建国記念の日','2027-2-23':'天皇誕生日',
+  '2027-3-21':'春分の日','2027-4-29':'昭和の日','2027-5-3':'憲法記念日','2027-5-4':'みどりの日',
+  '2027-5-5':'こどもの日','2027-7-19':'海の日','2027-8-11':'山の日','2027-9-20':'敬老の日',
+  '2027-9-23':'秋分の日','2027-10-11':'スポーツの日','2027-11-3':'文化の日','2027-11-23':'勤労感謝の日',
+};
+function _getHoliday(year,month,day){
+  return SHIFT_HOLIDAYS[year+'-'+month+'-'+day]||'';
+}
+
 function openShiftManager(){
   var el=document.getElementById('shift-modal');
   el.style.display='flex';
@@ -9184,8 +9205,11 @@ function _buildShiftStandalonePage(){
   var thead='<tr><th style="position:sticky;left:0;z-index:3;min-width:90px;padding:6px 10px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;">氏名</th>';
   for(var d=1;d<=daysInMonth;d++){
     var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
-    var dc=dow===0?'color:#e11d48':dow===6?'color:#1d4ed8':'';
-    thead+='<th style="min-width:34px;padding:3px 2px;text-align:center;font-size:11px;background:#f8fafc;border:1px solid #e2e8f0;'+dc+'">'+d+'<br><span style="font-size:9px;">'+weekDays[dow]+'</span></th>';
+    var hday=_getHoliday(SHIFT_YEAR,SHIFT_MONTH,d);
+    var isH=!!hday;
+    var dc=(dow===0||isH)?'color:#e11d48':dow===6?'color:#1d4ed8':'';
+    var dbg=(dow===0||isH)?'background:#fff5f5':dow===6?'background:#f0f7ff':'background:#f8fafc';
+    thead+='<th style="min-width:34px;padding:3px 2px;text-align:center;font-size:11px;'+dbg+';border:1px solid #e2e8f0;'+dc+'">'+d+'<br><span style="font-size:9px;">'+weekDays[dow]+'</span>'+(isH?'<br><span style="font-size:7px;">'+hday+'</span>':'')+'</th>';
   }
   thead+='<th style="min-width:50px;text-align:center;font-size:11px;background:#f8fafc;border:1px solid #e2e8f0;">公休</th></tr>';
 
@@ -9330,10 +9354,14 @@ function _renderShift(){
   for(var d=1;d<=daysInMonth;d++){
     var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
     var isSun=dow===0,isSat=dow===6;
-    var dayColor=isSun?'color:var(--red)':isSat?'color:var(--blue)':'';
-    thead+='<th style="min-width:30px;padding:3px 2px;text-align:center;font-size:11px;border-bottom:.5px solid var(--border);border-right:.5px solid var(--border2);">'
+    var holiday=_getHoliday(SHIFT_YEAR,SHIFT_MONTH,d);
+    var isHoliday=!!holiday;
+    var dayColor=(isSun||isHoliday)?'color:var(--red)':isSat?'color:var(--blue)':'';
+    var thBg=(isSun||isHoliday)?'background:#fff5f5':isSat?'background:#f0f7ff':'';
+    thead+='<th style="min-width:34px;padding:3px 2px;text-align:center;font-size:11px;border-bottom:.5px solid var(--border);border-right:.5px solid var(--border2);'+thBg+'">'
       +'<div style="'+dayColor+';font-weight:700;">'+d+'</div>'
       +'<div style="font-size:9px;'+dayColor+';">'+weekDays[dow]+'</div>'
+      +(isHoliday?'<div style="font-size:7px;color:var(--red);line-height:1.1;margin-top:1px;">'+holiday+'</div>':'')
       +'</th>';
   }
   thead+='<th style="min-width:50px;padding:6px 4px;text-align:center;font-size:11px;border-bottom:.5px solid var(--border);">公休数</th></tr>';
@@ -9351,7 +9379,8 @@ function _renderShift(){
       if(code==='休'||code==='有')kyuCount++;
       var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
       var isSun=dow===0,isSat=dow===6;
-      var cellBg=code&&SHIFT_CODES[code]?SHIFT_CODES[code].color:isSun?'#fff5f5':isSat?'#f0f7ff':'';
+      var isHolidayCell=!!_getHoliday(SHIFT_YEAR,SHIFT_MONTH,d);
+      var cellBg=code&&SHIFT_CODES[code]?SHIFT_CODES[code].color:(isSun||isHolidayCell)?'#fff5f5':isSat?'#f0f7ff':'';
       var cellText=code&&SHIFT_CODES[code]?SHIFT_CODES[code].text:'';
       tbody+='<td onclick="openShiftCellPopup(\''+m.id+'\','+d+',event)" style="min-width:30px;height:34px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;'
         +(cellBg?'background:'+cellBg+';':'')
