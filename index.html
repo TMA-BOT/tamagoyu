@@ -8500,9 +8500,9 @@ function _buildOshiHtml(forPrint){
     // 備考・料理長
     var noteHtml='<div style="'
       +'writing-mode:vertical-rl;direction:ltr;'
-      +'font-size:'+(pw?'10px':'6px')+';color:#666;'
+      +'font-size:'+(pw?'8px':'6px')+';color:#666;'
       +'padding:0 '+(pw?'6px':'2px')+';'
-      +'flex-shrink:0;white-space:nowrap;'
+      +'flex-shrink:0;white-space:nowrap;max-height:'+h+';overflow:hidden;'
       +'">'
       +'<div>'+escHtml(_oshiEditData.note.replace(/\n/g,'　'))+'</div>'
       +'<div style="color:'+d.accent+';font-weight:700;margin-top:4px;">'+escHtml(_oshiEditData.chef)+'　吉日</div>'
