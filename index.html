@@ -9061,8 +9061,8 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
 
 <!-- シフト管理モーダル -->
 <div id="shift-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;overflow-y:auto;">
-  <div style="min-height:100%;display:flex;flex-direction:column;align-items:center;padding:16px 12px 40px;">
-    <div style="width:100%;max-width:900px;background:var(--surface);border-radius:var(--rl);overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+  <div style="min-height:100%;display:flex;flex-direction:column;align-items:center;padding:16px 8px 40px;">
+    <div style="width:100%;max-width:1400px;background:var(--surface);border-radius:var(--rl);overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3);">
       <!-- ヘッダー -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:.5px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;">
         <div style="font-size:17px;font-weight:700;">📅 シフト管理（フロント）</div>
@@ -9071,7 +9071,7 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
           <button onclick="closeShiftManager()" style="width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:18px;cursor:pointer;color:var(--t2);">×</button>
         </div>
       </div>
-      <div style="padding:16px 20px;">
+      <div style="padding:12px 16px;">
         <!-- 月選択 -->
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
           <button onclick="shiftChangeMonth(-1)" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:14px;cursor:pointer;color:var(--t2);">◀</button>
@@ -9248,7 +9248,7 @@ function _renderShift(){
     var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
     var isSun=dow===0,isSat=dow===6;
     var dayColor=isSun?'color:var(--red)':isSat?'color:var(--blue)':'';
-    thead+='<th style="min-width:36px;padding:3px 2px;text-align:center;font-size:11px;border-bottom:.5px solid var(--border);border-right:.5px solid var(--border2);">'
+    thead+='<th style="min-width:30px;padding:3px 2px;text-align:center;font-size:11px;border-bottom:.5px solid var(--border);border-right:.5px solid var(--border2);">'
       +'<div style="'+dayColor+';font-weight:700;">'+d+'</div>'
       +'<div style="font-size:9px;'+dayColor+';">'+weekDays[dow]+'</div>'
       +'</th>';
@@ -9270,7 +9270,7 @@ function _renderShift(){
       var isSun=dow===0,isSat=dow===6;
       var cellBg=code&&SHIFT_CODES[code]?SHIFT_CODES[code].color:isSun?'#fff5f5':isSat?'#f0f7ff':'';
       var cellText=code&&SHIFT_CODES[code]?SHIFT_CODES[code].text:'';
-      tbody+='<td onclick="openShiftCellPopup(\''+m.id+'\','+d+',event)" style="min-width:36px;height:36px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;'
+      tbody+='<td onclick="openShiftCellPopup(\''+m.id+'\','+d+',event)" style="min-width:30px;height:34px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;'
         +(cellBg?'background:'+cellBg+';':'')
         +(cellText?'color:'+cellText+';':'')
         +'border-right:.5px solid var(--border2);border-bottom:.5px solid var(--border2);vertical-align:middle;">'
