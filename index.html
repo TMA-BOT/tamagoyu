@@ -9656,7 +9656,6 @@ function _renderShift(){
     tbody+='<tr>';
     tbody+='<td style="position:sticky;left:0;background:var(--surface);z-index:1;padding:5px 8px;font-size:12px;font-weight:600;white-space:nowrap;border-right:.5px solid var(--border);border-bottom:.5px solid var(--border2);">'
       +escHtml(m.name)
-      +(m.role?'<div style="font-size:9px;color:var(--t3);font-weight:400;">'+escHtml(m.role)+'</div>':'')
       +'</td>';
     for(var d=1;d<=daysInMonth;d++){
       var code=(monthData[m.id]||{})[d]||'';
