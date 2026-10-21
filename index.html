@@ -9634,6 +9634,22 @@ function _renderShift(){
   }
   thead+='<th style="min-width:50px;padding:6px 4px;text-align:center;font-size:11px;border-bottom:.5px solid var(--border);">公休数</th></tr>';
 
+  // 入込数行（日付の直下）
+  var ocupMonthData=SHIFT_OCUPANCY[monthKey]||{};
+  thead+='<tr style="background:#e0f2fe;">';
+  thead+='<th style="position:sticky;left:0;background:#e0f2fe;z-index:2;padding:4px 8px;font-size:10px;font-weight:700;color:#0369a1;border-right:.5px solid var(--border);border-bottom:.5px solid var(--border);white-space:nowrap;text-align:left;">🛏 入込数<div style="font-size:8px;font-weight:400;color:var(--t3);">タップで修正</div></th>';
+  for(var d=1;d<=daysInMonth;d++){
+    var oc=ocupMonthData[d]||{pax:0};
+    var rec=_recommendedStaff(oc.pax);
+    var isManual=oc.manual?'*':'';
+    thead+='<th onclick="promptShiftOcupancy('+d+')" style="min-width:34px;text-align:center;font-size:11px;cursor:pointer;border-right:.5px solid var(--border2);border-bottom:.5px solid var(--border);padding:2px;font-weight:600;">'
+      +(oc.pax>0?'<div style="color:'+rec.color+';font-weight:700;">'+oc.pax+'<span style="font-size:7px;">名'+isManual+'</span></div>'
+        +'<div style="font-size:7px;color:'+rec.color+';">'+rec.label+'</div>'
+        :'<div style="color:var(--t3);font-size:10px;">—</div>')
+      +'</th>';
+  }
+  thead+='<th style="border-bottom:.5px solid var(--border);background:#e0f2fe;"></th></tr>';
+
   var tbody='';
   SHIFT_MEMBERS.forEach(function(m){
     var kyuCount=0;
@@ -9663,23 +9679,6 @@ function _renderShift(){
       +(m.kyukei?kyuCount+'/9':'—')+'</td>';
     tbody+='</tr>';
   });
-
-  // 入込数行（クリックで手動入力）
-  var ocupMonthData=SHIFT_OCUPANCY[monthKey]||{};
-  tbody+='<tr style="background:#f0f9ff;">';
-  tbody+='<td style="position:sticky;left:0;background:#f0f9ff;z-index:1;padding:5px 8px;font-size:11px;font-weight:700;color:#0369a1;border-right:.5px solid var(--border);white-space:nowrap;">🛏 入込数<div style="font-size:8px;font-weight:400;color:var(--t3);">タップで修正</div></td>';
-  for(var d=1;d<=daysInMonth;d++){
-    var oc=ocupMonthData[d]||{pax:0};
-    var rec=_recommendedStaff(oc.pax);
-    var ocBg=rec.color?'background:'+rec.color+';opacity:.15;':'';
-    var isManual=oc.manual?'*':'';
-    tbody+='<td onclick="promptShiftOcupancy('+d+')" style="text-align:center;font-size:11px;cursor:pointer;border-right:.5px solid var(--border2);padding:2px;position:relative;">'
-      +(oc.pax>0?'<div style="font-weight:700;color:'+rec.color+';">'+oc.pax+'<span style="font-size:8px;">名'+isManual+'</span></div>'
-        +'<div style="font-size:8px;color:'+rec.color+';">'+rec.label+'</div>'
-        :'<div style="color:var(--t3);font-size:10px;">—</div>')
-      +'</td>';
-  }
-  tbody+='<td></td></tr>';
 
   // 日別出勤人数行（入込推奨と比較して警告）
   tbody+='<tr style="background:var(--bg2);">';
