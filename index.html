@@ -9133,8 +9133,8 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
         <div style="padding:12px;background:var(--bg2);border-radius:10px;border:.5px solid var(--border);">
           <div style="font-size:12px;font-weight:700;margin-bottom:10px;color:var(--t2);">新規メンバー追加</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
-            <input id="shift-new-name" type="text" placeholder="氏名（例：山田 太郎）" style="padding:8px 12px;border-radius:8px;border:.5px solid var(--border2);background:var(--surface);font-size:13px;color:var(--text);">
-            <input id="shift-new-role" type="text" placeholder="役職（例：SMGR、フロント）" style="padding:8px 12px;border-radius:8px;border:.5px solid var(--border2);background:var(--surface);font-size:13px;color:var(--text);">
+            <input id="shift-new-name" type="text" placeholder="氏名（例：山田 太郎）" onkeydown="if(event.key==='Enter')addShiftMember()" style="padding:8px 12px;border-radius:8px;border:.5px solid var(--border2);background:var(--surface);font-size:13px;color:var(--text);">
+            <input id="shift-new-role" type="text" placeholder="役職（例：SMGR、フロント）" onkeydown="if(event.key==='Enter')addShiftMember()" style="padding:8px 12px;border-radius:8px;border:.5px solid var(--border2);background:var(--surface);font-size:13px;color:var(--text);">
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
               <input id="shift-new-kyukei" type="checkbox" checked> 公休9日カウント対象
             </label>
@@ -9835,17 +9835,44 @@ function closeShiftMemberManager(){
 function _renderMemberList(){
   var html='';
   SHIFT_MEMBERS.forEach(function(m,i){
-    html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);border-radius:10px;">'
-      +'<div style="flex:1;">'
-      +'<div style="font-size:13px;font-weight:700;">'+escHtml(m.name)+'</div>'
-      +'<div style="font-size:11px;color:var(--t2);">'+escHtml(m.role||'')+'　'+(m.kyukei?'<span style="color:var(--blue);font-weight:600;">公休9日対象</span>':'<span style="color:var(--t3);">カウント対象外</span>')+'</div>'
+    html+='<div style="background:var(--bg2);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;">'
+      // 1行目：名前・役職入力
+      +'<div style="display:flex;gap:6px;align-items:center;">'
+      +'<input value="'+escHtml(m.name)+'" onchange="editShiftMemberName('+i+',this.value)" style="flex:1;padding:5px 8px;border-radius:6px;border:.5px solid var(--border2);background:var(--surface);font-size:13px;font-weight:700;color:var(--text);">'
+      +'<input value="'+escHtml(m.role||'')+'" onchange="editShiftMemberRole('+i+',this.value)" placeholder="役職" style="width:90px;padding:5px 8px;border-radius:6px;border:.5px solid var(--border2);background:var(--surface);font-size:11px;color:var(--t2);">'
       +'</div>'
-      +'<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;">'
-      +'<input type="checkbox" '+(m.kyukei?'checked':'')+' onchange="toggleShiftMemberKyukei('+i+',this.checked)"> 公休</label>'
+      // 2行目：公休チェック・上下移動・削除
+      +'<div style="display:flex;align-items:center;gap:6px;">'
+      +'<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;flex:1;">'
+      +'<input type="checkbox" '+(m.kyukei?'checked':'')+' onchange="toggleShiftMemberKyukei('+i+',this.checked)">'
+      +(m.kyukei?'<span style="color:var(--blue);font-weight:600;">公休9日対象</span>':'<span style="color:var(--t3);">カウント対象外</span>')
+      +'</label>'
+      +(i>0?'<button onclick="moveShiftMember('+i+',-1)" title="上へ" style="padding:3px 8px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:11px;cursor:pointer;">↑</button>':'')
+      +(i<SHIFT_MEMBERS.length-1?'<button onclick="moveShiftMember('+i+',1)" title="下へ" style="padding:3px 8px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:11px;cursor:pointer;">↓</button>':'')
       +'<button onclick="removeShiftMember('+i+')" style="padding:3px 8px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--red);font-size:11px;cursor:pointer;">削除</button>'
+      +'</div>'
       +'</div>';
   });
-  document.getElementById('shift-member-list').innerHTML=html||'<div style="font-size:13px;color:var(--t3);">メンバーがいません</div>';
+  document.getElementById('shift-member-list').innerHTML=html||'<div style="font-size:13px;color:var(--t3);padding:8px;">メンバーがいません</div>';
+}
+function editShiftMemberName(idx,val){
+  val=val.trim();
+  if(!val)return;
+  SHIFT_MEMBERS[idx].name=val;
+  _saveShiftData();
+}
+function editShiftMemberRole(idx,val){
+  SHIFT_MEMBERS[idx].role=val.trim();
+  _saveShiftData();
+}
+function moveShiftMember(idx,dir){
+  var to=idx+dir;
+  if(to<0||to>=SHIFT_MEMBERS.length)return;
+  var tmp=SHIFT_MEMBERS[idx];
+  SHIFT_MEMBERS[idx]=SHIFT_MEMBERS[to];
+  SHIFT_MEMBERS[to]=tmp;
+  _saveShiftData();
+  _renderMemberList();
 }
 function toggleShiftMemberKyukei(idx,val){
   SHIFT_MEMBERS[idx].kyukei=val;
