@@ -9469,16 +9469,16 @@ function _buildShiftStandalonePage(){
     +'<div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:600;">公休カウンター</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'+counter+'</div>'
     +'</div>'
+    +'<div style="padding:8px 16px;background:#fff;border-bottom:1px solid #e2e8f0;">'
+    +'<div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:6px;">勤務コード</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+    +Object.keys(SHIFT_CODES).map(function(k){var c=SHIFT_CODES[k];return'<span style="padding:3px 10px;border-radius:10px;background:'+c.color+';color:'+c.text+';font-weight:700;font-size:11px;">'+c.label+' <span style="font-weight:400;font-size:9px;">'+c.time+'</span></span>';}).join('')
+    +'</div></div>'
     +'<div style="overflow:auto;padding:12px 16px;">'
     +'<table style="border-collapse:collapse;width:100%;">'
     +'<thead style="position:sticky;top:0;">'+thead+'</thead>'
     +'<tbody>'+tbody+'</tbody>'
     +'</table></div>'
-    +'<div style="padding:10px 16px;background:#fff;border-top:1px solid #e2e8f0;margin-top:8px;">'
-    +'<div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:6px;">勤務コード</div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
-    +Object.keys(SHIFT_CODES).map(function(k){var c=SHIFT_CODES[k];return'<span style="padding:3px 10px;border-radius:10px;background:'+c.color+';color:'+c.text+';font-weight:700;font-size:11px;">'+c.label+' <span style="font-weight:400;font-size:9px;">'+c.time+'</span></span>';}).join('')
-    +'</div></div>'
     +'</body></html>';
 }
 
