@@ -1110,6 +1110,27 @@ function saveCurrentData(){
       .catch(function(e){_saving=false;});
   }
   try{localStorage.setItem('tamagoyu_'+key,JSON.stringify(data));}catch(e){}
+  // シフト管理の入込数を自動更新（manual:trueの日はスキップ）
+  _syncShiftOcupancyFromGuests(selectedDate,GUESTS);
+}
+// ホームのゲストデータ変更をシフト入込数に反映する
+function _syncShiftOcupancyFromGuests(date,guests){
+  var y=date.getFullYear();
+  var m=date.getMonth()+1;
+  var d=date.getDate();
+  var monthKey=y+'_'+m;
+  // manual:trueの日は手動取込が優先なのでスキップ
+  if(SHIFT_OCUPANCY&&SHIFT_OCUPANCY[monthKey]&&SHIFT_OCUPANCY[monthKey][d]&&SHIFT_OCUPANCY[monthKey][d].manual)return;
+  var pax=0;
+  (guests||[]).forEach(function(g){pax+=((g.man||0)+(g.woman||0)+(g.ca||0)+(g.cb||0));});
+  if(!SHIFT_OCUPANCY)SHIFT_OCUPANCY={};
+  if(!SHIFT_OCUPANCY[monthKey])SHIFT_OCUPANCY[monthKey]={};
+  SHIFT_OCUPANCY[monthKey][d]={pax:pax,manual:false};
+  // シフトモーダルが開いていてかつ同月なら表示も更新
+  var modal=document.getElementById('shift-modal');
+  if(modal&&modal.style.display!=='none'&&typeof SHIFT_YEAR!=='undefined'&&SHIFT_YEAR===y&&SHIFT_MONTH===m){
+    if(typeof _renderShift==='function')_renderShift();
+  }
 }
 
 function restoreSignData(dateKey){
