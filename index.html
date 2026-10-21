@@ -9103,7 +9103,8 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
           <button onclick="openShiftMemberManager()" style="margin-left:auto;padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:12px;cursor:pointer;color:var(--t2);">👥 メンバー管理</button>
         </div>
         <!-- 公休カウンター -->
-        <div id="shift-counter" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+        <div id="shift-counter" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
+        <div id="shift-warnings" style="display:none;flex-direction:column;gap:6px;margin-bottom:16px;"></div>
         <!-- シフト表 -->
         <div style="overflow-x:auto;overflow-y:visible;">
           <div id="shift-table-wrap"></div>
@@ -9615,6 +9616,63 @@ function _renderShift(){
       +'</div>';
   });
   document.getElementById('shift-counter').innerHTML=counterHtml;
+
+  // ===== 注意喚起チェック =====
+  var warnings=[];
+  var ocupMonthDataW=SHIFT_OCUPANCY[monthKey]||{};
+  SHIFT_MEMBERS.forEach(function(m){
+    if(!m.kyukei)return;
+    var kyuCount=0;
+    // パターン①：公休超過
+    for(var d=1;d<=daysInMonth;d++){
+      var code=(monthData[m.id]||{})[d]||'';
+      if(code==='休'||code==='有')kyuCount++;
+    }
+    if(kyuCount>9){
+      warnings.push({level:'error',msg:'⚠️ <b>'+escHtml(m.name)+'</b> の公休が <b>'+kyuCount+'日</b>（9日超過）'});
+    }
+    // パターン②：土日・祝日に休みが集中（月の土日祝数に対して半分以上休んでる）
+    var holidayOffDays=[];
+    var totalHolidayDays=0;
+    for(var d=1;d<=daysInMonth;d++){
+      var dow2=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
+      var isWeekend=(dow2===0||dow2===6)||!!_getHoliday(SHIFT_YEAR,SHIFT_MONTH,d);
+      if(!isWeekend)continue;
+      totalHolidayDays++;
+      var code2=(monthData[m.id]||{})[d]||'';
+      if(code2==='休'||code2==='有')holidayOffDays.push(d+'日');
+    }
+    if(totalHolidayDays>0&&holidayOffDays.length>=Math.ceil(totalHolidayDays/2)){
+      warnings.push({level:'warn',msg:'📅 <b>'+escHtml(m.name)+'</b> が土日祝の半数以上お休み（'+holidayOffDays.join('・')+'）'});
+    }
+    // パターン③：入込が多い日（推奨スタッフ数が多い日）に休みが入っている
+    var busyOffDays=[];
+    for(var d=1;d<=daysInMonth;d++){
+      var ocW=ocupMonthDataW[d]||{pax:0};
+      if(ocW.pax<=0)continue;
+      var recW=_recommendedStaff(ocW.pax);
+      if(recW.min<4)continue;// 推奨4名以上（繁忙・満室級）の日だけ
+      var code3=(monthData[m.id]||{})[d]||'';
+      if(code3==='休'||code3==='有')busyOffDays.push(d+'日('+ocW.pax+'名)');
+    }
+    if(busyOffDays.length>0){
+      warnings.push({level:'warn',msg:'🛏 <b>'+escHtml(m.name)+'</b> が繁忙日にお休み（'+busyOffDays.join('・')+'）'});
+    }
+  });
+  var warnEl=document.getElementById('shift-warnings');
+  if(warnEl){
+    if(warnings.length===0){
+      warnEl.style.display='none';
+      warnEl.innerHTML='';
+    } else {
+      warnEl.style.display='flex';
+      warnEl.innerHTML=warnings.map(function(w){
+        var bg=w.level==='error'?'var(--red-l)':'#fff7ed';
+        var border=w.level==='error'?'var(--red)':'#f97316';
+        return '<div style="padding:7px 12px;border-radius:var(--r);background:'+bg+';border:.5px solid '+border+';font-size:12px;line-height:1.5;">'+w.msg+'</div>';
+      }).join('');
+    }
+  }
 
   // テーブル生成
   var weekDays=['日','月','火','水','木','金','土'];
