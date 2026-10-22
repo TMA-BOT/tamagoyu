@@ -16,7 +16,10 @@
       if(user){
         const ek=user.email.replace(/\./g,'_').replace(/@/g,'_at_');
         get(ref(db,'roles/'+ek+'/role')).then(function(s){
-          window._userRole=s.exists()?s.val():'admin';
+          // 未登録ユーザーは閲覧のみ。旧表記 seiso は cleaning として扱う
+          let r=s.exists()?s.val():'viewer';
+          if(r==='seiso')r='cleaning';
+          window._userRole=r;
           const rl={'admin':'管理者','staff':'スタッフ','viewer':'閲覧のみ','front':'フロント','cleaning':'清掃班','ryoin':'料飲','ryoin_lead':'料飲リーダー'};
           const sl=document.getElementById('sync-label');if(sl)sl.textContent=(user.displayName||user.email)+' ('+(rl[window._userRole]||window._userRole)+')';
           const rb=document.getElementById('tb-role');if(rb){rb.textContent=rl[window._userRole]||window._userRole;rb.style.display='';}
@@ -25,7 +28,7 @@
           if(typeof updateEditMode==='function')updateEditMode();
           if(typeof startRealtimeSync==='function'&&typeof getDateKey==='function'){startRealtimeSync(getDateKey(window.selectedDate||new Date()));}
           if(typeof loadDateData==='function')loadDateData(window.selectedDate||new Date());
-        }).catch(function(){window._userRole='admin';if(typeof updateEditMode==='function')updateEditMode();if(typeof loadDateData==='function')loadDateData(window.selectedDate||new Date());});
+        }).catch(function(){window._userRole='viewer';if(typeof updateEditMode==='function')updateEditMode();if(typeof loadDateData==='function')loadDateData(window.selectedDate||new Date());});
       } else {
         window._userRole='viewer';
         const sl=document.getElementById('sync-label');if(sl)sl.textContent='未ログイン';
@@ -5293,13 +5296,13 @@ function doLogout(){
   }
 }
 function canEdit(section){
-  const role=window._userRole||'admin';// プレビューモードはadmin扱い
+  const role=window._userRole||'viewer';// 役割が未確定のあいだは編集不可
   if(role==='admin'||role==='staff')return true;
   if(role==='front'){
     const allowed=['home','guests','lunch','betchu'];
     return !section||allowed.indexOf(section)!==-1;
   }
-  if(role==='ryoin'){
+  if(role==='ryoin'||role==='ryoin_lead'){
     const allowed=['meals','ryoin','betchu'];
     return !section||allowed.indexOf(section)!==-1;
   }
