@@ -9375,6 +9375,7 @@ function parseShiftCsvAndPreview(text){
   if(btnEl)btnEl.style.display='';
 }
 function doShiftCsvImport(){
+  if(!_shiftLoaded){showToast('シフトを読み込めていないため取り込めません');return;}
   var monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
   if(!SHIFT_OCUPANCY[monthKey])SHIFT_OCUPANCY[monthKey]={};
   var daysInMonth=new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();
@@ -9496,7 +9497,9 @@ function _loadShiftData(){
     SHIFT_MEMBERS=_defaultShiftMembers();
     SHIFT_DATA={};
     SHIFT_OCUPANCY={};
-    _shiftLoaded=true;
+    // 読み込み失敗時は保存させない（初期値でFirebaseを上書きしないため）。次回モーダルを開いた時に再読み込み
+    _shiftLoaded=false;
+    showToast('シフトの読み込みに失敗しました。開き直してください');
     _renderShift();
   });
 }
@@ -9574,6 +9577,7 @@ function _defaultShiftMembers(){
 function _saveShiftData(){
   const db=window._db;
   if(!db)return;
+  if(!_shiftLoaded){showToast('シフトを読み込めていないため保存できません');return;}
   window._dbSet(window._dbRef(db,'shift_front'),{members:SHIFT_MEMBERS,data:SHIFT_DATA,ocupancy:SHIFT_OCUPANCY})
     .catch(function(e){console.error('shift save error',e);});
 }
