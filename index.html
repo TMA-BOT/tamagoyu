@@ -5328,8 +5328,9 @@ function updateEditMode(){
     document.querySelectorAll('button,input[type="file"],input[type="submit"]').forEach(function(b){
       // ログインボタン・タブ切り替え・表示系は除外
       const onc=b.getAttribute('onclick')||'';
-      const isNav=onc.includes('showTab')||onc.includes('sw('+')')||b.id==='login-btn'||b.classList.contains('btn-tab');
+      const isNav=onc.includes('showTab')||onc.includes('sw('+')')||b.id==='login-btn'||b.id==='logout-btn'||b.classList.contains('btn-tab');
       if(!isNav){b.disabled=true;b.style.opacity='0.35';b.style.cursor='not-allowed';b.dataset.viewerLocked='1';}
+      else{b.disabled=false;b.style.opacity='';b.style.cursor='';}
     });
     // CSV非表示
     const csvSec=document.getElementById('csv-section');if(csvSec)csvSec.style.display='none';
