@@ -28,7 +28,7 @@
           if(typeof updateEditMode==='function')updateEditMode();
           if(typeof startRealtimeSync==='function'&&typeof getDateKey==='function'){startRealtimeSync(getDateKey(window.selectedDate||new Date()));}
           if(typeof loadDateData==='function')loadDateData(window.selectedDate||new Date());
-        }).catch(function(){window._userRole='viewer';if(typeof updateEditMode==='function')updateEditMode();if(typeof loadDateData==='function')loadDateData(window.selectedDate||new Date());});
+        }).catch(function(){window._userRole='viewer';const lb=document.getElementById('login-btn');if(lb)lb.style.display='none';const lo=document.getElementById('logout-btn');if(lo)lo.style.display='';if(typeof updateEditMode==='function')updateEditMode();if(typeof loadDateData==='function')loadDateData(window.selectedDate||new Date());});
       } else {
         window._userRole='viewer';
         const sl=document.getElementById('sync-label');if(sl)sl.textContent='未ログイン';
