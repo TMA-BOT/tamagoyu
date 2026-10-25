@@ -654,8 +654,45 @@ function renderStats(data,label){
 function loadStats(){
   var dk=document.getElementById('date-stats').value;
   var label=formatDate2(dk);
+  // Firebaseから直接読み込む（別PCでも集計を表示するため）
+  if(typeof _ncDatabase!=='undefined'){
+    try{
+      _ncDatabase.ref('number_counter/'+dk).once('value',function(snap){
+        var data={};
+        if(snap.exists()){
+          var val=snap.val();
+          if(val&&typeof val==='object'){
+            // 新形式: day/nightスロット
+            if(statsFilter==='all'||statsFilter==='day'){
+              var d=val['day']||{};
+              Object.entries(d).forEach(function([k,v]){if(typeof v==='number')data[k]=(data[k]||0)+v;});
+            }
+            if(statsFilter==='all'||statsFilter==='night'){
+              var n=val['night']||{};
+              Object.entries(n).forEach(function([k,v]){if(typeof v==='number')data[k]=(data[k]||0)+v;});
+            }
+            // 旧形式: day/night以外の数値直値（昼として扱う）
+            if(statsFilter==='all'||statsFilter==='day'){
+              Object.entries(val).forEach(function([k,v]){
+                if(k!=='day'&&k!=='night'&&typeof v==='number')data[k]=(data[k]||0)+v;
+              });
+            }
+          }
+        }
+        var sfLabel=statsFilter==='day'?' ☀️昼':statsFilter==='night'?' 🌙夜':(Object.keys(data).length>0?' (旧データ含む)':'');
+        renderStats(data,label+sfLabel);
+      });
+    }catch(e){
+      // Firebase失敗時はlocalStorageから表示
+      _loadStatsFromLocal(dk,label);
+    }
+    return;
+  }
+  // オフライン時はlocalStorageから表示
+  _loadStatsFromLocal(dk,label);
+}
+function _loadStatsFromLocal(dk,label){
   var data={};
-  // 新形式(昼/夜)
   if(statsFilter==='all'||statsFilter==='day'){
     var d=cData[dk+'/day']||{};
     Object.entries(d).forEach(function([k,v]){data[k]=(data[k]||0)+v;});
@@ -663,28 +700,6 @@ function loadStats(){
   if(statsFilter==='all'||statsFilter==='night'){
     var n=cData[dk+'/night']||{};
     Object.entries(n).forEach(function([k,v]){data[k]=(data[k]||0)+v;});
-  }
-  // 旧形式(昼夜なし)を昼として加算
-  if(statsFilter==='all'||statsFilter==='day'){
-    if(statsFilter==='all'&&typeof _ncDatabase!=='undefined'){
-      try{
-        _ncDatabase.ref('number_counter/'+dk).once('value',function(snap){
-          if(snap.exists()){
-            var val=snap.val();
-            if(val&&typeof val==='object'){
-              Object.entries(val).forEach(function([k,v]){
-                if(k!=='day'&&k!=='night'&&typeof v==='number'){
-                  data[k]=(data[k]||0)+v;
-                }
-              });
-            }
-          }
-          var sfLabel=statsFilter==='day'?' ☀️昼':statsFilter==='night'?' 🌙夜':' (旧データ含む)';
-          renderStats(data,label+(statsFilter==='all'?'':sfLabel));
-        });
-      }catch(e){renderStats(data,label);}
-      return;
-    }
   }
   var sfLabel=statsFilter==='day'?' ☀️昼':statsFilter==='night'?' 🌙夜':'';
   renderStats(data,label+sfLabel);
