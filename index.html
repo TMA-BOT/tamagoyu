@@ -766,7 +766,7 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
       <button id="ryoin-btn-clear" onclick="clearAssign()" style="padding:6px 12px;border-radius:var(--r);border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">クリア</button>
       <button id="ryoin-btn-add" onclick="addRyoinTable()" style="padding:6px 12px;border-radius:var(--r);border:.5px solid var(--green);background:none;color:var(--green);font-size:12px;font-weight:600;cursor:pointer;">＋ テーブルを追加</button>
       <button id="ryoin-btn-reset" onclick="resetRyoinLayout()" style="padding:6px 12px;border-radius:var(--r);border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">初期配置に戻す</button>
-      <button id="ryoin-btn-print" onclick="window.print()" style="padding:6px 12px;border-radius:var(--r);border:.5px solid var(--blue);background:var(--blue);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">🖨 印刷</button>
+      <button id="ryoin-btn-print" onclick="printRyoinMap()" style="padding:6px 12px;border-radius:var(--r);border:.5px solid var(--blue);background:var(--blue);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">🖨 印刷</button>
     </div>
   </div>
 </div>
@@ -8141,6 +8141,52 @@ function resetRyoinLayout(){
   cfg.hiddenTables=[];
   renderRyoinMap();
   showToast('初期配置に戻しました');
+}
+// 会場図を別ウィンドウで印刷
+function printRyoinMap(){
+  const canvas=document.getElementById('ryoin-map-canvas');
+  const cfg=RYOIN_CONFIGS[currentVenue];
+  if(!canvas||!cfg)return;
+  // canvasのHTMLをそのまま別ウィンドウに複製して印刷
+  const canvasHTML=canvas.outerHTML;
+  const title=cfg.label+'　会場図';
+  const w=window.open('','_blank');
+  w.document.write(
+    '<!DOCTYPE html><html><head><meta charset="utf-8">'
+    +'<title>'+title+'</title>'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0;}'
+    +'body{background:#fff;padding:10mm;font-family:Hiragino Sans,Noto Sans JP,sans-serif;}'
+    +'h2{font-size:14px;margin-bottom:8px;color:#333;}'
+    +'#map-wrap{position:relative;}'
+    +'@media print{'
+    +'  @page{size:A3 landscape;margin:5mm;}'
+    +'  body{padding:5mm;}'
+    +'  h2{font-size:12px;}'
+    +'}'
+    +'</style>'
+    +'</head><body>'
+    +'<h2>'+title+'</h2>'
+    +'<div id="map-wrap" style="width:'+cfg.w+'px;height:'+cfg.h+'px;transform-origin:top left;">'
+    +canvasHTML
+    +'</div>'
+    +'<script>'
+    +'window.onload=function(){'
+    +'  var wrap=document.getElementById("map-wrap");'
+    +'  var availW=(297-10)*3.7795;'  // A3横の短辺=297mm、余白10mm
+    +'  var availH=(420-10)*3.7795;'
+    +'  var scaleW=availW/'+cfg.w+';'
+    +'  var scaleH=availH/'+cfg.h+';'
+    +'  var scale=Math.min(scaleW,scaleH,1);'
+    +'  wrap.style.transform="scale("+scale+")";'
+    +'  wrap.style.width=('+cfg.w+'*scale)+"px";'
+    +'  wrap.style.height=('+cfg.h+'*scale)+"px";'
+    +'  setTimeout(function(){window.print();window.close();},400);'
+    +'};'
+    +'<\/script>'
+    +'</body></html>'
+  );
+  w.document.close();
 }
 // 印刷時にcanvasをページに合わせてスケール
 window.addEventListener('beforeprint',function(){
