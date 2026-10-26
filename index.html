@@ -198,8 +198,11 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
   body.print-betchu #betchu-print-area *{visibility:visible!important;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
   body.print-betchu #betchu-print-area{position:fixed!important;top:0!important;left:0!important;width:72mm!important;}
   /* 料飲マップは専用 */
-  #ryoin-map-canvas,#ryoin-map-canvas *{visibility:visible!important;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
-  #ryoin-map-canvas{position:fixed!important;top:0!important;left:0!important;margin:0!important;padding:0!important;border:none!important;border-radius:0!important;transform-origin:top left!important;}
+  #ryoin-map-overlay{display:flex!important;background:transparent!important;}
+  #ryoin-map-overlay > div{box-shadow:none!important;border:none!important;}
+  #ryoin-map-overlay,#ryoin-map-overlay *{visibility:visible!important;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+  #ryoin-map-overlay{position:fixed!important;top:0!important;left:0!important;width:100%!important;height:auto!important;overflow:visible!important;padding:0!important;}
+  #ryoin-map-canvas{margin:0!important;padding:0!important;border:none!important;border-radius:0!important;transform-origin:top left!important;}
   /* 操作ボタン類は非表示 */
   button,.no-print,
   input[type=checkbox],input[type=file],
