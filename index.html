@@ -8152,17 +8152,62 @@ function printRyoinMap(){
   clone.removeAttribute('id');
   clone.style.transform='';
   clone.style.margin='0';
-  clone.querySelectorAll('button,.no-print').forEach(function(b){b.remove();});
+  clone.querySelectorAll('button,.no-print,.rmap-note').forEach(function(b){b.remove();});
+  // A3横（420×297mm）から余白を引いた範囲（1mm≒3.7795px）
+  const MM=3.7795;
+  const availW=(420-16)*MM;
+  const availH=(297-16-10)*MM; // 見出し分を差し引く
+  const scale=Math.min(availW/cfg.w,availH/cfg.h);
+  // 横に余る分は、文字を伸ばさずに座席の位置と幅を横方向へ広げて埋める
+  const stretch=Math.max(1,availW/(cfg.w*scale));
+  const mapW=cfg.w*stretch;
+  clone.style.width=mapW+'px';clone.style.minWidth=mapW+'px';
+  Array.prototype.forEach.call(clone.children,function(el){
+    const l=parseFloat(el.style.left),wd=parseFloat(el.style.width);
+    if(!isNaN(l)&&el.style.right==='')el.style.left=(l*stretch)+'px';
+    if(!isNaN(wd))el.style.width=(wd*stretch)+'px';
+  });
+  // 備考（アレルギー・子ども用ランチ・別注）を部屋番号の下に書き込む
+  clone.querySelectorAll('[data-room]').forEach(function(el){
+    const room=el.dataset.room;
+    const g=GUESTS.find(function(x){return x.room===room;})||{};
+    const myBetchu=BETCHU.filter(function(b){return b.room===room;});
+    const lines=[];
+    if(el.dataset.mark)lines.push('★ '+escHtml(el.dataset.mark));
+    const alg=[];
+    if(g.badge==='ballergy'||g.note)alg.push(g.note||'');
+    myBetchu.forEach(function(b){if(b.allergy)alg.push(b.allergy);});
+    const algText=alg.filter(Boolean).join('／');
+    if(alg.length)lines.push('⚠ アレルギー'+(algText?'：'+escHtml(String(algText)):''));
+    const childPax=(g.ca||0)+(g.cb||0);
+    let childLunch=0;
+    if(g.personModeChild&&g.personMealsChild&&g.personMealsChild.length){
+      childLunch=g.personMealsChild.filter(function(p){return p.type==='子ども用ランチ';}).length;
+    } else if(g.dinnerTypeChild==='子ども用ランチ'){
+      childLunch=childPax;
+    }
+    if(childLunch>0)lines.push('🍱 子ども用ランチ ×'+childLunch);
+    myBetchu.forEach(function(b){
+      const items=(b.items||[]).map(function(it){return escHtml(String(it.name))+'×'+it.qty;}).join('・');
+      if(items)lines.push('🍽 別注：'+items);
+      if(b.note)lines.push('備考：'+escHtml(String(b.note)));
+    });
+    const special=g.dinnerOrder&&g.dinnerOrder.special;
+    if(special)lines.push('特記：'+escHtml(String(special)));
+    if(!lines.length)return;
+    el.classList.add('has-note');
+    const box=document.createElement('div');
+    box.className='rmap-info';
+    box.innerHTML=lines.map(function(t){return '<div>'+t+'</div>';}).join('');
+    el.appendChild(box);
+    // 書ききれない場合は下方向に伸ばす
+    el.style.minHeight=el.style.height;el.style.height='auto';
+  });
   // 本体の色設定（CSS変数）を別ウィンドウにも引き継ぐ
   const rootCss=getComputedStyle(document.documentElement);
   const vars=['--bg','--surface','--surface2','--border','--border2','--text','--t2','--t3',
     '--green','--green-l','--amber','--amber-l','--red','--red-l','--blue','--blue-l','--r','--rl'];
   const varCss=':root{'+vars.map(function(v){return v+':'+(rootCss.getPropertyValue(v).trim()||'initial');}).join(';')+'}';
-  // A3横（420×297mm）から余白を引いた範囲に収まる倍率（1mm≒3.7795px）
-  const MM=3.7795;
-  const availW=(420-16)*MM;
-  const availH=(297-16-10)*MM; // 見出し分を差し引く
-  const scale=Math.min(availW/cfg.w,availH/cfg.h);
   const title=escHtml(cfg.label)+'　会場図';
   const tbDate=document.getElementById('tb-date');
   const dateStr=tbDate?escHtml(tbDate.textContent||''):'';
@@ -8182,18 +8227,19 @@ function printRyoinMap(){
     +'.bar button{padding:8px 16px;border-radius:8px;border:1px solid #2c4f7a;background:#2c4f7a;color:#fff;font-size:14px;font-weight:600;}'
     +'.bar button.sub{background:#fff;color:#2c4f7a;}'
     +'h2{font-size:16px;margin-bottom:2mm;height:8mm;line-height:8mm;}'
-    +'#map-outer{position:relative;overflow:hidden;width:'+(cfg.w*scale)+'px;height:'+(cfg.h*scale)+'px;}'
-    +'#map-inner{position:absolute;top:0;left:0;width:'+cfg.w+'px;height:'+cfg.h+'px;transform:scale('+scale+');transform-origin:top left;}'
+    +'#map-outer{position:relative;overflow:hidden;width:'+(mapW*scale)+'px;height:'+(cfg.h*scale)+'px;}'
+    +'#map-inner{position:absolute;top:0;left:0;width:'+mapW+'px;height:'+cfg.h+'px;transform:scale('+scale+');transform-origin:top left;}'
     +'#map-inner>div{border:1.5px solid #000;background:#fff!important;}'
     // 黒のみ印刷向け：色を使わず線と文字で区別する
     +'#map-inner *{color:#000!important;box-shadow:none!important;}'
     +'#map-inner [data-tid]{background:#fff!important;border:1.5px solid #000!important;}'
     +'#map-inner [data-tid]:not([data-filled]){border:1px dashed #888!important;}'
     +'#map-inner [data-tid]:not([data-filled]) *{color:#888!important;}'
-    +'#map-inner [data-mark]{border:3px double #000!important;}'
-    +'#map-inner [data-mark]::after{content:attr(data-mark);position:absolute;bottom:4px;right:4px;font-size:9px;font-weight:700;border:1px solid #000;border-radius:3px;padding:0 3px;background:#fff;}'
+    +'#map-inner [data-tid].has-note{background:#d9d9d9!important;border:2px solid #000!important;justify-content:flex-start!important;}'
+    +'#map-inner .rmap-info{margin-top:3px;padding-top:2px;border-top:1px solid #000;font-size:9px;font-weight:700;line-height:1.35;overflow-wrap:anywhere;}'
     +'#map-inner [data-tid] span[style*="amber"]{background:#fff!important;border:1px solid #000;}'
-    +'#map-inner .rmap-pillar{background:#ccc!important;}'
+    +'#map-inner .rmap-pillar{background:repeating-linear-gradient(45deg,#fff 0 4px,#999 4px 5px)!important;border:1px solid #000;}'
+    +'#map-inner .rmap-pillar span{background:#fff;padding:0 3px;}'
     +'#map-inner .rmap-entrance{background:#fff!important;border:1.5px solid #000!important;}'
     +'@page{size:A3 landscape;margin:0;}'
     +'@media print{.bar{display:none!important;}body{padding:8mm;}}'
@@ -8376,8 +8422,8 @@ function renderRyoinMap(){
 
     const el=document.createElement('div');
     el.dataset.tid=t.id;
-    if(filled)el.dataset.filled='1';
-    if(isAllergy)el.dataset.mark='アレルギー';else if(isAnniv)el.dataset.mark='記念日';else if(isVip)el.dataset.mark='VIP';
+    if(filled){el.dataset.filled='1';el.dataset.room=a.room;}
+    if(isAnniv)el.dataset.mark='記念日';else if(isVip)el.dataset.mark='VIP';
     el.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+tw+'px;height:'+th+'px;'
       +'background:'+elBg+';border:1.5px solid '+elBorder+';border-radius:8px;cursor:grab;user-select:none;'
       +'display:flex;flex-direction:column;justify-content:center;padding:6px 8px;box-shadow:0 1px 4px rgba(0,0,0,.08);';
@@ -8405,7 +8451,7 @@ function renderRyoinMap(){
         if(a.baby>0)str+='<br>添い寝'+a.baby+'名';
         return '<div style="font-size:10px;color:var(--t2);margin-top:2px;line-height:1.5;">'+str+'</div>';
       })():'<div></div>')
-      +(filled&&a.note?'<div style="font-size:9px;color:var(--red);margin-top:2px;">'+escHtml(a.note.substring(0,10))+'</div>':'')
+      +(filled&&a.note?'<div class="rmap-note" style="font-size:9px;color:var(--red);margin-top:2px;">'+escHtml(a.note.substring(0,10))+'</div>':'')
       +'<button onclick="event.stopPropagation();deleteRyoinTable('+t.id+')" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;border:none;background:rgba(0,0,0,.15);color:#fff;font-size:10px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;" class="no-print">✕</button>';
 
     // ドラッグ処理
