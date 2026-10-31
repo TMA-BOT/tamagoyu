@@ -617,6 +617,16 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
       </div>
       <div class="panel" id="panel-tools">
         <div class="sec-label" style="margin-bottom:12px;">便利ツール</div>
+        <div class="card" style="cursor:pointer;margin-bottom:10px;border:1.5px dashed #d97706;" onclick="toggleTestMode()">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:28px;">🧪</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;margin-bottom:2px;" id="test-mode-card-label">テストモードを開始</div>
+              <div style="font-size:12px;color:var(--t2);">架空のお客さんをランダムに入れて操作を試せます（本番のデータには保存されません）</div>
+            </div>
+            <div style="margin-left:auto;font-size:18px;color:var(--t3);">›</div>
+          </div>
+        </div>
         <div class="card" style="cursor:pointer;" onclick="openNumberCounter()">
           <div style="display:flex;align-items:center;gap:12px;">
             <div style="font-size:28px;">🚗</div>
@@ -1590,6 +1600,151 @@ function openEditModal(idx){
   const modal=document.querySelector('#edit-modal-bg .edit-modal');
   if(modal)modal.scrollTop=0;
 }
+// ===== テストモード =====
+// 架空のお客さんで操作を試すためのモード。
+// テストモード中は Firebase への書き込みをすべて止め、日付データは端末にも残さない（メモリ上だけ）。
+// 終了するとページを読み込み直して本番のデータに戻る。
+let _testMode=false;
+function toggleTestMode(){
+  if(_testMode){exitTestMode();}else{enterTestMode();}
+}
+function enterTestMode(){
+  if(_testMode)return;
+  if(!confirm('テストモードを開始します。\n\n・架空のお客さんがランダムにお部屋に入ります\n・テストモード中の変更は保存されません（本番のデータには影響しません）\n・終了するとページを読み込み直して元のデータに戻ります\n\n開始しますか？'))return;
+  _testMode=true;
+  _installTestGuards();
+  if(_realtimeUnsub){_realtimeUnsub();_realtimeUnsub=null;}
+  _fillTestGuests();
+  _showTestBanner();
+  const tab=document.querySelector('.tab[data-tab="guests"]');
+  if(tab)sw('guests',tab);
+  showToast('🧪 テストモードを開始しました');
+}
+function exitTestMode(){
+  if(!_testMode)return;
+  if(!confirm('テストモードを終了して、本番のデータに戻りますか？\n（テスト中の内容はすべて消えます）'))return;
+  location.reload();
+}
+// 本番データへの書き込みを止める
+function _installTestGuards(){
+  const origRef=window._dbRef,origGet=window._dbGet,origOn=window._dbOnValue;
+  const paths=new WeakMap();
+  if(origRef){
+    window._dbRef=function(db,path){
+      const r=origRef.apply(this,arguments);
+      try{paths.set(r,String(path||''));}catch(e){}
+      return r;
+    };
+  }
+  // 日付ごとのデータ（お客さん・ランチ・別注・清掃など）は読み込まない
+  function isDatePath(r){return (paths.get(r)||'').indexOf('dates')===0;}
+  const emptySnap={exists:function(){return false;},val:function(){return null;}};
+  window._dbSet=function(){return Promise.resolve();};
+  if(origGet)window._dbGet=function(r){return isDatePath(r)?Promise.resolve(emptySnap):origGet.apply(this,arguments);};
+  if(origOn)window._dbOnValue=function(r){return isDatePath(r)?function(){}:origOn.apply(this,arguments);};
+  // 端末内の保存（localStorage）もメモリ上だけにする
+  const ls=window.localStorage,P=Storage.prototype;
+  const oSet=P.setItem,oGet=P.getItem,oRem=P.removeItem;
+  const mem={};
+  P.setItem=function(k,v){if(this===ls){mem[k]=String(v);return;}return oSet.apply(this,arguments);};
+  P.getItem=function(k){
+    if(this===ls){
+      if(Object.prototype.hasOwnProperty.call(mem,k))return mem[k];
+      if(/^tamagoyu_\d{4}-/.test(k))return null; // 本番の日付データは見せない
+    }
+    return oGet.apply(this,arguments);
+  };
+  P.removeItem=function(k){if(this===ls){mem[k]=null;return;}return oRem.apply(this,arguments);};
+}
+function _showTestBanner(){
+  if(document.getElementById('test-mode-banner'))return;
+  const bar=document.createElement('div');
+  bar.id='test-mode-banner';
+  bar.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px;background:repeating-linear-gradient(45deg,#fff3cd 0 12px,#ffe8a1 12px 24px);border-bottom:2px solid #d97706;color:#7c2d12;font-size:12px;font-weight:700;flex-shrink:0;';
+  bar.innerHTML='<span>🧪 テストモード中（架空のお客さん・変更は保存されません）</span><span style="flex:1;"></span>'
+    +'<button type="button" onclick="refillTestGuests()" style="padding:4px 10px;border-radius:20px;border:1px solid #d97706;background:#fff;color:#b45309;font-size:11px;font-weight:700;cursor:pointer;">🎲 お客さんを入れ直す</button>'
+    +'<button type="button" onclick="exitTestMode()" style="padding:4px 10px;border-radius:20px;border:none;background:#b45309;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">テスト終了</button>';
+  const topbar=document.querySelector('#app .topbar');
+  if(topbar&&topbar.parentNode)topbar.parentNode.insertBefore(bar,topbar.nextSibling);
+  else document.body.insertBefore(bar,document.body.firstChild);
+  const lbl=document.getElementById('test-mode-card-label');if(lbl)lbl.textContent='テストモードを終了';
+}
+function refillTestGuests(){
+  if(!_testMode)return;
+  if(!confirm('お客さんをランダムに入れ直しますか？（今のテスト内容は消えます）'))return;
+  _fillTestGuests();
+  showToast('🎲 お客さんを入れ直しました');
+}
+// 架空のお客さんをランダムに作る
+function _fillTestGuests(){
+  const rnd=function(n){return Math.floor(Math.random()*n);};
+  const pick=function(a){return a[rnd(a.length)];};
+  const chance=function(p){return Math.random()<p;};
+  const rooms=Array.from(document.querySelectorAll('#em-room option')).map(function(o){return o.value;}).filter(Boolean);
+  const count=Math.round(rooms.length*(0.5+Math.random()*0.3)); // 稼働率50〜80%
+  const chosen=rooms.slice().sort(function(){return Math.random()-.5;}).slice(0,count)
+    .sort(function(a,b){return parseInt(a)-parseInt(b);});
+  const today=getDateKey(selectedDate);
+  const ALLERGY=['えび','かに','そば','卵','乳製品','小麦','ナッツ','生魚'];
+  const NOTE_ANNIV=['誕生日（ケーキ準備）','結婚記念日','還暦祝い'];
+  const NOTE_VIP=['常連様','社長様ご一行','旅行会社ご招待'];
+  const NOTE_OTHER=['到着遅め（19時頃）','車椅子ご利用','お酒は飲まれません','送迎あり'];
+  function makeGuest(room){
+    const adults=pick([1,2,2,2,2,3,3,4]);
+    const hasKids=chance(.25);
+    const ca=hasKids?rnd(3):0,cb=hasKids&&chance(.4)?1:0,baby=chance(.08)?1:0;
+    const stayType=chance(.08)?'sudomari':'normal';
+    const meals=stayType==='normal';
+    const venue=chance(.85)?pick(['花山水','花山水','磐梯']):pick(['陸奥','蓬莱']);
+    const g={
+      room:room,man:adults,woman:0,ca:ca,cb:cb,baby:baby,
+      dinner:meals?pick(['18:00','18:00','19:00']):'',dinnerVenue:meals?venue:'',
+      dinnerType:chance(.1)?'中華':'会席',
+      dinnerTypeChild:(ca+cb)>0?(chance(.5)?'子ども用ランチ':'子ども用会席'):'',
+      personModeAdult:false,personModeChild:false,personMealsAdult:[],personMealsChild:[],
+      breakfast:meals?pick(['7:30','8:00']):'',breakfastVenue:meals?venue:'',
+      note:'',badge:'',stayType:stayType,nights:chance(.2)?2:1,checkInDate:today,group:'',
+      checkedOut:false,stayConfirmed:false,
+      dinnerOrder:{special:'',drink:'',charge:''},
+      breakfastOrder:{special:'',drink:'',charge:'',bfDay:''},
+    };
+    const r=Math.random();
+    if(r<.12){g.badge='ballergy';g.note=pick(ALLERGY)+'アレルギー';}
+    else if(r<.2){g.badge='banniv';g.note=pick(NOTE_ANNIV);}
+    else if(r<.25){g.badge='bvip';g.note=pick(NOTE_VIP);}
+    else if(r<.33){g.note=pick(NOTE_OTHER);}
+    return g;
+  }
+  const guests=chosen.map(makeGuest);
+  // 団体（GA）とツアー（TA）を作る：連続した部屋を同じグループにして夕食をそろえる
+  function makeGroup(name,size,venue,time){
+    const free=guests.filter(function(g){return !g.group&&g.stayType==='normal';});
+    if(free.length<size)return;
+    const start=rnd(free.length-size+1);
+    free.slice(start,start+size).forEach(function(g){
+      g.group=name;g.dinner=time;g.dinnerVenue=venue;g.breakfastVenue=venue;g.dinnerType='会席';
+      if(name.charAt(0)==='T'){g.man=2;g.ca=0;g.cb=0;g.baby=0;g.dinnerTypeChild='';g.note=g.badge?g.note:'ツアー客';}
+    });
+  }
+  makeGroup('A',2+rnd(3),pick(['花山水','磐梯']),'18:00');
+  if(chance(.7))makeGroup('TA',4+rnd(3),'花山水','19:00');
+  // 別注（2〜4件）
+  const betchu=[];
+  const withDinner=guests.filter(function(g){return g.dinner;}).sort(function(){return Math.random()-.5;});
+  withDinner.slice(0,2+rnd(3)).forEach(function(g){
+    const items=BETCHU_MENU.slice().sort(function(){return Math.random()-.5;}).slice(0,1+rnd(2))
+      .map(function(m){return {name:m.name,qty:1+rnd(2)};});
+    betchu.push({room:g.room,items:items,allergy:g.badge==='ballergy'?g.note.replace('アレルギー',''):'',note:'',createdAt:'テスト'});
+  });
+  GUESTS=guests;LUNCHES=[];BETCHU=betchu;CLEANING_DATA={};CHECKOUT_ROOMS=[];
+  TABLE_PROGRESS={hana:{},band:{},mutsu:{},f5:{}};
+  Object.keys(manualAssign).forEach(function(v){manualAssign[v]={};});
+  saveCurrentData(); // テストモード中はメモリ上だけに保存される
+  buildGuests();
+  if(mealTab==='lunch')buildLunchList();else if(mealTab==='betchu')buildBetchuList();else buildMeals();
+  buildCleaning();
+}
+
 // ===== グループ分割 =====
 // グループ名の決まり：団体=A〜J（表示はGA）、ツアー=TA〜TJ、サブグループ=親名-1, -2（GA-1, TA-1）
 const SPLIT_GROUP_LETTERS=['A','B','C','D','E','F','G','H','I','J'];

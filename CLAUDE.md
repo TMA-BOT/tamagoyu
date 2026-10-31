@@ -138,6 +138,19 @@ const fs = lu.frontStatus || (lu.roomNo ? 'room' : (lu.frontPaid!==false ? 'paid
 
 ---
 
+## テストモード
+
+- 便利ツールの「🧪 テストモードを開始」から切り替え（`toggleTestMode()` / `enterTestMode()` / `exitTestMode()`）
+- 架空のお客さんを `_fillTestGuests()` でランダム生成（稼働率50〜80%、団体GA・ツアーTA、アレルギー等の備考、別注2〜4件）
+- `_installTestGuards()` で本番データを守る：
+  - `window._dbSet` を何もしない関数に差し替え（Firebaseへの書き込みをすべて停止）
+  - `dates/` のデータは `_dbGet` / `_dbOnValue` で読まない（それ以外のメニュー等は読み込みのみ可）
+  - `localStorage` の書き込みはメモリ上だけにし、本番の日付データ（`tamagoyu_YYYY-…`）は見せない
+- 終了はページの読み込み直し（`location.reload()`）。ページを再読み込みすればいつでも本番に戻る
+- Firebaseへ書く処理を新しく作るときも、必ず `window._dbSet` を経由すること（直接 `set` を呼ぶとテストモードで止まらない）
+
+---
+
 ## Firebase構成
 
 - `window._db` — Firebaseデータベースインスタンス
