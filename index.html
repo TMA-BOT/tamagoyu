@@ -312,7 +312,7 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div class="sec-label" style="margin:0;" id="guests-day-label">本日のお部屋状況</div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-            <button id="bulk-venue-btn" onclick="openBulkVenueModal()" style="display:none;padding:7px 12px;border-radius:var(--r);border:none;background:var(--green);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">🍽 会場振り分け (<span id="bulk-venue-count">0</span>)</button>
+            <button id="bulk-venue-btn" onclick="openBulkEditModal()" style="display:none;padding:7px 12px;border-radius:var(--r);border:none;background:var(--green);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">✏️ まとめて設定 (<span id="bulk-venue-count">0</span>)</button>
             <button onclick="autoAssignVenues()" id="auto-venue-btn" style="padding:7px 12px;border-radius:var(--r);border:.5px solid var(--green);background:var(--green-l);color:var(--green);font-size:12px;font-weight:600;cursor:pointer;">⚡ 会場を自動振り分け</button>
             <button id="bulk-checkout-btn" onclick="bulkCheckout()" style="display:none;padding:7px 12px;border-radius:var(--r);border:.5px solid var(--red);background:var(--red-l);color:var(--red);font-size:12px;font-weight:600;cursor:pointer;">チェックアウト (<span id="bulk-count">0</span>)</button>
           </div>
@@ -4941,6 +4941,7 @@ function bulkCheckout(){
   const checked=Array.from(document.querySelectorAll('.room-checkbox:checked'));
   if(!checked.length)return;
   const rooms=checked.map(function(cb){return cb.dataset.room;});
+  if(!confirm(rooms.length+'部屋をチェックアウトします。よろしいですか？\n\n'+rooms.join('・')))return;
   rooms.forEach(function(r){
     if(CHECKOUT_ROOMS.indexOf(r)===-1)CHECKOUT_ROOMS.push(r);
     const g=GUESTS.find(function(x){return x.room===r;});
@@ -5122,97 +5123,165 @@ function toggleGroupSelect(btn){
   btn.textContent=allOn?'全選択':'選択解除';
   updateBulkBtn();
 }
-function openBulkVenueModal(){
+// ===== 選択した部屋のまとめて設定 =====
+// 項目ごとに「変更しない」が初期値。選んだ項目だけを選んだ部屋に反映する
+function hasDinner(g){return g.stayType!=='sudomari'&&g.stayType!=='dayuse'&&g.stayType!=='breakfast';}
+function hasBreakfast(g){return g.stayType!=='sudomari'&&g.stayType!=='dayuse';}
+function openBulkEditModal(){
   if((window._userRole||'viewer')==='viewer'){showToast('ログインが必要です');return;}
   const rooms=Array.from(document.querySelectorAll('.room-checkbox:checked')).map(function(cb){return cb.dataset.room;});
   const targets=GUESTS.filter(function(g){return rooms.indexOf(g.room)!==-1;});
   if(!targets.length){showToast('部屋を選択してください');return;}
-  const venues=Array.from(document.querySelectorAll('#em-dinner-venue option')).map(function(o){return o.value;}).filter(Boolean);
-  const st={venue:'',withBreakfast:true};
-  const old=document.getElementById('bulk-venue-overlay');if(old)old.remove();
+  const opts=function(id){return Array.from(document.querySelectorAll('#'+id+' option')).map(function(o){return o.value;}).filter(Boolean);};
+  const venues=opts('em-dinner-venue');
+  const used=usedGroupNames();
+  const newG=SPLIT_GROUP_LETTERS.find(function(l){return !used.has(l);});
+  const newT=SPLIT_GROUP_LETTERS.map(function(l){return 'T'+l;}).find(function(n){return !used.has(n);});
+  const existingGroups=Array.from(used).sort();
+  const hasKids=targets.some(function(g){return (g.ca||0)+(g.cb||0)>0;});
+
+  // 各項目：key, 見出し, 選択肢[{v,l}]。v===undefined は「変更しない」
+  const FIELDS=[
+    {k:'dinner',l:'夕食の時間',o:opts('em-dinner').map(function(v){return {v:v,l:v};})},
+    {k:'dinnerVenue',l:'夕食会場',o:venues.map(function(v){return {v:v,l:v};}),hint:'中華・連泊のお客さんは花山水で確定'},
+    {k:'dinnerType',l:'夕食の種類',o:[{v:'会席',l:'会席'},{v:'中華',l:'中華'}],hint:'中華にすると夕食会場は花山水になります'},
+    {k:'breakfast',l:'朝食の時間',o:opts('em-breakfast').map(function(v){return {v:v,l:v};})},
+    {k:'breakfastVenue',l:'朝食会場',o:[{v:'__same',l:'夕食と同じ'}].concat(venues.map(function(v){return {v:v,l:v};}))},
+  ];
+  if(hasKids)FIELDS.push({k:'dinnerTypeChild',l:'子どもの食事',o:[{v:'子ども用会席',l:'子ども用会席'},{v:'子ども用ランチ',l:'子ども用ランチ'}],hint:'子どもがいる部屋だけに反映'});
+  FIELDS.push({k:'group',l:'グループ',o:[{v:'',l:'グループなし'}]
+    .concat(existingGroups.map(function(n){return {v:n,l:grpLabel(n)};}))
+    .concat(newG?[{v:newG,l:'＋新しい団体 '+grpLabel(newG)}]:[])
+    .concat(newT?[{v:newT,l:'＋新しいツアー '+grpLabel(newT)}]:[])});
+
+  const st={note:{mode:'',text:''}}; // st[k] に選んだ値（未設定＝変更しない）
+
+  // 1部屋に設定を当てはめた結果（保存前の確認にも使う）
+  function applyTo(g){
+    const r=Object.assign({},g);
+    const din=hasDinner(g),bf=hasBreakfast(g);
+    if('dinner' in st&&din)r.dinner=st.dinner;
+    if('dinnerType' in st&&din){
+      // 会席を選んだときは「会席2日目」などはそのまま
+      if(st.dinnerType==='中華')r.dinnerType='中華';
+      else if((r.dinnerType||'').indexOf('会席')!==0)r.dinnerType='会席';
+    }
+    if('dinnerVenue' in st&&din)r.dinnerVenue=st.dinnerVenue;
+    // 中華・連泊は花山水で確定（会場か種類を変えたとき）
+    if(din&&('dinnerVenue' in st||'dinnerType' in st)&&hanaFixedReason(r))r.dinnerVenue='花山水';
+    if('breakfast' in st&&bf)r.breakfast=st.breakfast;
+    if('breakfastVenue' in st&&bf)r.breakfastVenue=st.breakfastVenue==='__same'?(r.dinnerVenue||r.breakfastVenue):st.breakfastVenue;
+    if('dinnerTypeChild' in st&&(g.ca||0)+(g.cb||0)>0)r.dinnerTypeChild=st.dinnerTypeChild;
+    if('group' in st)r.group=st.group;
+    if(st.note.mode==='add'&&st.note.text.trim())r.note=(r.note?r.note+' ':'')+st.note.text.trim();
+    if(st.note.mode==='replace')r.note=st.note.text.trim();
+    if(st.note.mode==='clear')r.note='';
+    return r;
+  }
+  function diffText(g,r){
+    const L={dinner:'夕',dinnerVenue:'夕会場',dinnerType:'種類',breakfast:'朝',breakfastVenue:'朝会場',dinnerTypeChild:'子ども',group:'G',note:'備考'};
+    const out=[];
+    Object.keys(L).forEach(function(k){
+      const a=g[k]||'',b=r[k]||'';
+      if(a===b)return;
+      const show=function(v){return k==='group'?(v?grpLabel(v):'なし'):(v||'なし');};
+      const why=(k==='dinnerVenue'&&b==='花山水'&&st.dinnerVenue&&st.dinnerVenue!=='花山水'&&hanaFixedReason(r))?'<span style="color:var(--amber);">（'+hanaFixedReason(r)+'のため）</span>':'';
+      out.push(L[k]+' '+escHtml(show(a))+'→<b>'+escHtml(show(b))+'</b>'+why);
+    });
+    return out;
+  }
+
+  const old=document.getElementById('bulk-edit-overlay');if(old)old.remove();
   const overlay=document.createElement('div');
-  overlay.id='bulk-venue-overlay';
+  overlay.id='bulk-edit-overlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;-webkit-overflow-scrolling:touch;';
   overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
   const box=document.createElement('div');
-  box.style.cssText='background:var(--surface);border-radius:var(--rl);width:100%;max-width:520px;margin:auto;padding:16px 18px;';
+  box.style.cssText='background:var(--surface);border-radius:var(--rl);width:100%;max-width:560px;margin:auto;';
   overlay.appendChild(box);
+  const CHIP=function(on){return 'padding:6px 11px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid '+(on?'var(--green)':'var(--border2)')+';background:'+(on?'var(--green-l)':'#fff')+';color:'+(on?'var(--green)':'var(--t2)')+';';};
+  const CHIP_NONE=function(on){return 'padding:6px 11px;border-radius:20px;font-size:12px;cursor:pointer;border:1.5px dashed '+(on?'var(--t2)':'var(--border2)')+';background:'+(on?'var(--surface2)':'#fff')+';color:var(--t3);';};
 
-  // 振り分け後の各会場の人数（選んだ部屋以外はそのまま）
-  function venueCounts(){
-    const c={};
-    GUESTS.forEach(function(g){
-      if(g.checkedOut)return;
-      let v=g.dinnerVenue||'';
-      if(targets.indexOf(g)!==-1&&st.venue&&g.dinner!==''&&g.stayType!=='breakfast'&&g.stayType!=='sudomari'&&g.stayType!=='dayuse'){
-        v=hanaFixedReason(g)?'花山水':st.venue;
-      }
-      if(v)c[v]=(c[v]||0)+guestPax(g);
-    });
-    return c;
-  }
   function render(){
-    const counts=venueCounts();
-    let h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
-      +'<div style="font-size:16px;font-weight:700;">🍽 食事会場の振り分け（'+targets.length+'部屋）</div>'
-      +'<button type="button" id="bv-x" style="background:none;border:none;font-size:20px;color:var(--t3);cursor:pointer;">✕</button></div>';
-    h+='<div style="font-size:12px;color:var(--t2);font-weight:700;margin-bottom:6px;">会場を選んでください</div>';
-    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;margin-bottom:12px;">';
-    venues.forEach(function(v){
-      const on=st.venue===v;
-      const cap=VENUE_MAX[v];
-      const n=counts[v]||0;
-      const over=cap&&n>cap;
-      h+='<button type="button" class="bv-venue" data-v="'+escHtml(v)+'" style="padding:9px 4px;border-radius:var(--r);border:2px solid '+(on?'var(--green)':'var(--border2)')+';background:'+(on?'var(--green-l)':'#fff')+';color:'+(on?'var(--green)':'var(--text)')+';font-size:14px;font-weight:700;cursor:pointer;line-height:1.3;">'
-        +escHtml(v)+'<div style="font-size:10px;font-weight:600;color:'+(over?'var(--red)':'var(--t3)')+';">'+n+(cap?' / '+cap:'')+'名'+(over?' 定員オーバー':'')+'</div></button>';
+    let h='<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px 6px;">'
+      +'<div style="font-size:16px;font-weight:700;">✏️ まとめて設定（'+targets.length+'部屋）</div>'
+      +'<button type="button" data-act="close" style="background:none;border:none;font-size:20px;color:var(--t3);cursor:pointer;">✕</button></div>'
+      +'<div style="padding:0 18px;font-size:12px;color:var(--t2);">'+targets.map(function(g){return escHtml(g.room);}).join('・')+'</div>'
+      +'<div style="padding:4px 18px 8px;font-size:11px;color:var(--t3);">変えたい項目だけ選んでください。「変更しない」の項目はそのまま残ります。</div>'
+      +'<div style="padding:0 18px;">';
+    FIELDS.forEach(function(f){
+      const set=(f.k in st);
+      h+='<div style="padding:10px 0;border-top:.5px solid var(--border);">'
+        +'<div style="font-size:12px;font-weight:700;margin-bottom:6px;color:'+(set?'var(--green)':'var(--text)')+';">'+(set?'● ':'')+f.l
+        +(f.hint?'<span style="font-weight:400;color:var(--t3);font-size:10px;margin-left:6px;">'+f.hint+'</span>':'')+'</div>'
+        +'<div style="display:flex;gap:5px;flex-wrap:wrap;">'
+        +'<button type="button" data-k="'+f.k+'" data-none="1" style="'+CHIP_NONE(!set)+'">変更しない</button>';
+      f.o.forEach(function(o){
+        const on=set&&st[f.k]===o.v;
+        h+='<button type="button" data-k="'+f.k+'" data-v="'+escHtml(o.v)+'" style="'+CHIP(on)+'">'+escHtml(o.l)+'</button>';
+      });
+      h+='</div></div>';
     });
+    // 備考
+    const nm=st.note.mode;
+    h+='<div style="padding:10px 0;border-top:.5px solid var(--border);">'
+      +'<div style="font-size:12px;font-weight:700;margin-bottom:6px;color:'+(nm?'var(--green)':'var(--text)')+';">'+(nm?'● ':'')+'備考</div>'
+      +'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'
+      +'<button type="button" data-note="" style="'+CHIP_NONE(!nm)+'">変更しない</button>'
+      +'<button type="button" data-note="add" style="'+CHIP(nm==='add')+'">書き足す</button>'
+      +'<button type="button" data-note="replace" style="'+CHIP(nm==='replace')+'">置き換える</button>'
+      +'<button type="button" data-note="clear" style="'+CHIP(nm==='clear')+'">消す</button></div>'
+      +((nm==='add'||nm==='replace')?'<input type="text" id="be-note" value="'+escHtml(st.note.text)+'" placeholder="例：○○観光ツアー" style="width:100%;padding:8px 10px;border:.5px solid var(--border2);border-radius:6px;font-size:14px;box-sizing:border-box;">':'')
+      +'</div>';
     h+='</div>';
-    h+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:12px;cursor:pointer;"><input type="checkbox" id="bv-bf" '+(st.withBreakfast?'checked':'')+' style="width:16px;height:16px;"> 朝食会場も同じにする</label>';
-    // 部屋ごとの振り分け結果
-    h+='<div style="font-size:12px;color:var(--t2);font-weight:700;margin-bottom:6px;">振り分け結果</div><div style="display:flex;flex-direction:column;gap:4px;max-height:40vh;overflow-y:auto;">';
-    targets.forEach(function(g){
-      const fixed=hanaFixedReason(g);
-      const noDinner=!g.dinner||g.stayType==='breakfast'||g.stayType==='sudomari'||g.stayType==='dayuse';
-      let to,note='',col='var(--text)';
-      if(noDinner){to='—';note='夕食なし（変更しません）';col='var(--t3)';}
-      else if(fixed){to='花山水';note=fixed+'のため花山水で確定';col='var(--amber)';}
-      else{to=st.venue||'未選択';}
-      h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:'+(fixed&&!noDinner?'var(--amber-l)':'var(--surface2)')+';font-size:13px;">'
-        +'<b style="min-width:56px;">'+escHtml(g.room)+'号室</b>'
-        +'<span style="color:var(--t2);min-width:34px;">'+guestPax(g)+'名</span>'
-        +'<span style="color:var(--t3);">'+escHtml(g.dinnerVenue||'未設定')+' →</span>'
-        +'<b style="color:'+col+';">'+escHtml(to)+'</b>'
-        +(note?'<span style="font-size:11px;color:'+col+';margin-left:auto;">'+note+'</span>':'')
-        +'</div>';
-    });
-    h+='</div>';
-    h+='<div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:14px;">'
-      +'<button type="button" id="bv-cancel" style="padding:12px;border-radius:var(--r);border:.5px solid var(--border2);background:none;color:var(--t2);font-size:13px;cursor:pointer;">キャンセル</button>'
-      +'<button type="button" id="bv-save" style="padding:12px;border-radius:var(--r);border:none;background:var(--green);color:#fff;font-size:14px;font-weight:700;cursor:pointer;opacity:'+(st.venue?'1':'.5')+';">✅ この会場に振り分ける</button></div>';
+    // 確認
+    h+='<div style="position:sticky;bottom:-16px;background:var(--surface);border-top:.5px solid var(--border);padding:10px 18px 16px;border-radius:0 0 var(--rl) var(--rl);">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:4px;">変わる内容</div>'
+      +'<div id="be-preview" style="max-height:24vh;overflow-y:auto;display:flex;flex-direction:column;gap:3px;margin-bottom:8px;"></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;">'
+      +'<button type="button" data-act="close" style="padding:12px;border-radius:var(--r);border:.5px solid var(--border2);background:none;color:var(--t2);font-size:13px;cursor:pointer;">キャンセル</button>'
+      +'<button type="button" data-act="save" id="be-save" style="padding:12px;border-radius:var(--r);border:none;background:var(--green);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">✅ 設定する</button></div></div>';
     box.innerHTML=h;
-    box.querySelector('#bv-x').onclick=function(){overlay.remove();};
-    box.querySelector('#bv-cancel').onclick=function(){overlay.remove();};
-    box.querySelector('#bv-bf').onchange=function(){st.withBreakfast=this.checked;};
-    box.querySelectorAll('.bv-venue').forEach(function(b){b.onclick=function(){st.venue=b.dataset.v;render();};});
-    box.querySelector('#bv-save').onclick=save;
+    box.querySelectorAll('[data-act="close"]').forEach(function(b){b.onclick=function(){overlay.remove();};});
+    box.querySelector('[data-act="save"]').onclick=save;
+    box.querySelectorAll('[data-k]').forEach(function(b){
+      b.onclick=function(){
+        const k=b.dataset.k;
+        if(b.dataset.none)delete st[k];else st[k]=b.dataset.v;
+        // 夕食会場を選んだら、朝食会場が未設定なら「夕食と同じ」にしておく
+        if(k==='dinnerVenue'&&!b.dataset.none&&!('breakfastVenue' in st))st.breakfastVenue='__same';
+        render();
+      };
+    });
+    box.querySelectorAll('[data-note]').forEach(function(b){b.onclick=function(){st.note.mode=b.dataset.note;render();};});
+    const ni=box.querySelector('#be-note');
+    if(ni){ni.oninput=function(){st.note.text=this.value;updatePreview();};}
+    updatePreview();
+  }
+  function updatePreview(){
+    const pv=box.querySelector('#be-preview');if(!pv)return;
+    let n=0;
+    pv.innerHTML=targets.map(function(g){
+      const d=diffText(g,applyTo(g));
+      if(d.length)n++;
+      return '<div style="font-size:12px;padding:4px 8px;border-radius:6px;background:'+(d.length?'var(--green-l)':'var(--surface2)')+';">'
+        +'<b>'+escHtml(g.room)+'号室</b>　'+(d.length?d.join('　'):'<span style="color:var(--t3);">変更なし</span>')+'</div>';
+    }).join('');
+    const sv=box.querySelector('#be-save');
+    if(sv){sv.style.opacity=n?'1':'.5';sv.textContent=n?'✅ '+n+'部屋に設定する':'✅ 設定する';}
   }
   function save(){
-    if(!st.venue){showToast('会場を選んでください');return;}
-    let moved=0,fixed=0;
+    let n=0;
     targets.forEach(function(g){
-      const noDinner=!g.dinner||g.stayType==='breakfast'||g.stayType==='sudomari'||g.stayType==='dayuse';
-      if(noDinner)return;
-      const v=hanaFixedReason(g)?'花山水':st.venue;
-      if(v!==st.venue)fixed++;
-      g.dinnerVenue=v;
-      if(st.withBreakfast&&g.breakfast)g.breakfastVenue=v;
-      moved++;
+      const r=applyTo(g);
+      if(diffText(g,r).length){Object.assign(g,r);n++;}
     });
+    if(!n){showToast('変更する項目を選んでください');return;}
     overlay.remove();
     document.querySelectorAll('.room-checkbox:checked').forEach(function(cb){cb.checked=false;});
     pushData();buildGuests();
     if(document.getElementById('panel-meals')&&document.getElementById('panel-meals').classList.contains('active'))buildMeals();
-    showToast(moved+'部屋を'+st.venue+'に振り分けました'+(fixed?'（中華・連泊の'+fixed+'部屋は花山水）':''));
+    showToast(n+'部屋の設定を変更しました');
   }
   render();
   document.body.appendChild(overlay);
