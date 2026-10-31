@@ -744,8 +744,8 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
   </div>
 </div>
 <div id="ryoin-map-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:95;display:none;align-items:flex-start;justify-content:center;padding:12px;overflow-y:auto;" onclick="if(event.target===this)closeRyoinMap()">
-  <div style="background:var(--surface);border-radius:var(--rl);width:100%;max-width:860px;margin:auto;" onclick="event.stopPropagation()">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:.5px solid var(--border);">
+  <div class="ryoin-map-box" style="background:var(--surface);border-radius:var(--rl);width:100%;max-width:860px;margin:auto;" onclick="event.stopPropagation()">
+    <div class="ryoin-map-hd" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:.5px solid var(--border);">
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="font-size:15px;font-weight:700;" id="ryoin-map-title">花山水</span>
         <button onclick="openRyoinMap('hana')" id="rmap-btn-hana" style="font-size:12px;padding:4px 10px;border-radius:20px;border:1.5px solid var(--green);background:var(--green);color:#fff;cursor:pointer;font-weight:600;">花山水</button>
@@ -753,7 +753,7 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
       </div>
       <button onclick="closeRyoinMap()" style="width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:18px;cursor:pointer;">✕</button>
     </div>
-    <div style="padding:12px;overflow:auto;max-height:75vh;">
+    <div class="ryoin-map-area" style="padding:12px;overflow:auto;max-height:75vh;">
       <div id="ryoin-map-scroll" style="overflow:auto;">
       <div id="ryoin-map-canvas" style="position:relative;touch-action:none;overflow:visible;transform-origin:top left;"></div>
       </div>
@@ -771,8 +771,9 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
         </div>
       </div>
     </div>
-    <div style="padding:10px 16px;border-top:.5px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span style="font-size:11px;color:var(--t3);">テーブルをドラッグして移動できます</span>
+    <div class="rotate-hint">📱 横向きにすると大きく表示できます</div>
+    <div id="ryoin-stamp-bar" style="padding:8px 16px;border-top:.5px solid var(--border);"></div>
+    <div class="ryoin-footer" style="padding:10px 16px;border-top:.5px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <div style="flex:1;"></div>
       <button id="ryoin-btn-auto" onclick="autoAssignTables()" style="padding:6px 12px;border-radius:var(--r);border:.5px solid var(--blue);background:var(--blue);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">⚡ 自動割り当て</button>
       <button id="ryoin-btn-clear" onclick="clearAssign()" style="padding:6px 12px;border-radius:var(--r);border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">クリア</button>
@@ -8507,6 +8508,7 @@ function openRyoinMap(v){
 }
 function closeRyoinMap(){
   tableMgmtMode=false;
+  _ryoinStampMode=false;_ryoinStampRoom=null;
   const overlay=document.getElementById('ryoin-map-overlay');
   if(overlay)overlay.style.display='none';
 }
@@ -8634,14 +8636,15 @@ function renderRyoinMap(){
     el.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+tw+'px;height:'+th+'px;'
       +'background:'+elBg+';border:1.5px solid '+elBorder+';border-radius:8px;cursor:grab;user-select:none;'
       +'display:flex;flex-direction:column;justify-content:center;padding:6px 8px;box-shadow:0 1px 4px rgba(0,0,0,.08);';
-    el.onclick=function(e){
-      if(dragging)return;
+    // タップの処理（クリックはドラッグ処理の onEnd から呼ぶ。タッチでも動くように）
+    function onTap(){
+      if(_ryoinStampMode){ryoinStampTable(t.id);return;}
       if(joinSelectMode){
         joinTables(currentTableModalId,t.id);
       } else {
         openTableModal(t.id);
       }
-    };
+    }
     const capOv=tableCapOverride[currentVenue];
     const cap=capOv[t.id]||t.cap||2;
     // 次の料理表示は会場図では不要（テーブル管理のみ）
@@ -8662,37 +8665,46 @@ function renderRyoinMap(){
       +'<button onclick="event.stopPropagation();deleteRyoinTable('+t.id+')" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;border:none;background:rgba(0,0,0,.15);color:#fff;font-size:10px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;" class="no-print">✕</button>';
 
     // ドラッグ処理
-    let dragging=false,startX,startY,origX,origY;
+    // 8px以上動かしたらドラッグ、動かさなければタップ。縮小表示中は移動量を縮小率で割る
+    let pressed=false,dragging=false,startX,startY,origX,origY;
+    function curScale(){const m=(canvas.style.transform||'').match(/scale\(([\d.]+)\)/);return m?parseFloat(m[1]):1;}
     function onStart(ex,ey){
-      dragging=true;
+      pressed=true;dragging=false;
       startX=ex;startY=ey;
-      const left=parseInt(el.style.left);
-      const top=parseInt(el.style.top);
-      origX=left;origY=top;
-      el.style.zIndex=10;el.style.cursor='grabbing';
-      el.style.boxShadow='0 4px 16px rgba(0,0,0,.18)';
+      origX=parseInt(el.style.left);origY=parseInt(el.style.top);
     }
     function onMove(ex,ey){
-      if(!dragging)return;
-      const nx=Math.max(0,Math.min(cfg.w-t.w,origX+(ex-startX)));
-      const ny=Math.max(0,Math.min(cfg.h-t.h,origY+(ey-startY)));
-      el.style.left=nx+'px';el.style.top=ny+'px';
+      if(!pressed)return;
+      if(!dragging){
+        if(Math.abs(ex-startX)+Math.abs(ey-startY)<8)return;
+        if(_ryoinStampMode)return; // 連続割り当て中は動かさない
+        dragging=true;
+        el.style.zIndex=10;el.style.cursor='grabbing';
+        el.style.boxShadow='0 4px 16px rgba(0,0,0,.18)';
+      }
+      const sc=curScale();
+      const nx=Math.max(0,Math.min(cfg.w-t.w,origX+(ex-startX)/sc));
+      const ny=Math.max(0,Math.min(cfg.h-t.h,origY+(ey-startY)/sc));
+      el.style.left=Math.round(nx)+'px';el.style.top=Math.round(ny)+'px';
     }
     function onEnd(){
-      if(!dragging)return;
+      if(!pressed)return;
+      pressed=false;
+      if(!dragging){onTap();return;}
       dragging=false;
       el.style.zIndex='';el.style.cursor='grab';
       el.style.boxShadow='0 1px 4px rgba(0,0,0,.08)';
       tablePositions[currentVenue][t.id]={x:parseInt(el.style.left),y:parseInt(el.style.top)};
     }
+    function onBtn(e){return e.target&&e.target.closest&&e.target.closest('button');}
     // マウス
-    el.addEventListener('mousedown',function(e){onStart(e.clientX,e.clientY);e.preventDefault();});
+    el.addEventListener('mousedown',function(e){if(onBtn(e))return;onStart(e.clientX,e.clientY);e.preventDefault();});
     document.addEventListener('mousemove',function(e){onMove(e.clientX,e.clientY);});
     document.addEventListener('mouseup',onEnd);
     // タッチ
-    el.addEventListener('touchstart',function(e){onStart(e.touches[0].clientX,e.touches[0].clientY);e.preventDefault();},{passive:false});
-    el.addEventListener('touchmove',function(e){onMove(e.touches[0].clientX,e.touches[0].clientY);e.preventDefault();},{passive:false});
-    el.addEventListener('touchend',onEnd);
+    el.addEventListener('touchstart',function(e){if(onBtn(e))return;onStart(e.touches[0].clientX,e.touches[0].clientY);e.preventDefault();},{passive:false});
+    el.addEventListener('touchmove',function(e){if(!pressed)return;onMove(e.touches[0].clientX,e.touches[0].clientY);e.preventDefault();},{passive:false});
+    el.addEventListener('touchend',function(e){if(!pressed)return;onEnd();e.preventDefault();});
 
     canvas.appendChild(el);
   });
@@ -8710,8 +8722,92 @@ function renderRyoinMap(){
       scroll.style.height='';
     }
   }
+  _renderRyoinStampBar();
+}
+// ===== 会場図：連続割り当て（部屋を選んでテーブルをタップ） =====
+let _ryoinStampMode=false;
+let _ryoinStampRoom=null; // 部屋番号 ／ ''=外す ／ null=未選択
+function setRyoinStampMode(on){
+  _ryoinStampMode=!!on;
+  if(on&&_ryoinStampRoom===null)_ryoinStampRoom=_nextUnassignedRoom();
+  renderRyoinMap();
+}
+function setRyoinStampRoom(room){_ryoinStampRoom=room;_renderRyoinStampBar();}
+function _venueGuests(){
+  return GUESTS.filter(function(g){return getVenueKey(g.dinnerVenue||'')===currentVenue&&!g.checkedOut;})
+    .sort(function(a,b){return parseInt(a.room)-parseInt(b.room);});
+}
+function _nextUnassignedRoom(after){
+  const ma=manualAssign[currentVenue]||{};
+  const used=Object.values(ma);
+  const list=_venueGuests().filter(function(g){return used.indexOf(g.room)===-1;});
+  if(!list.length)return null;
+  if(after){const i=list.findIndex(function(g){return parseInt(g.room)>parseInt(after);});if(i!==-1)return list[i].room;}
+  return list[0].room;
+}
+function ryoinStampTable(tid){
+  if((window._userRole||'viewer')==='viewer'){showToast('ログインが必要です');return;}
+  const ma=manualAssign[currentVenue];
+  if(_ryoinStampRoom===null){showToast('下のボタンから部屋を選んでください');return;}
+  if(_ryoinStampRoom===''){
+    delete ma[tid];
+  } else {
+    const room=_ryoinStampRoom;
+    Object.keys(ma).forEach(function(k){if(ma[k]===room)delete ma[k];});
+    ma[tid]=room;
+    _ryoinStampRoom=_nextUnassignedRoom(room); // 次の未割り当ての部屋を自動で選ぶ
+  }
+  renderRyoinMap();
+  saveCurrentData();
+}
+function _renderRyoinStampBar(){
+  const bar=document.getElementById('ryoin-stamp-bar');
+  if(!bar)return;
+  const ov=document.getElementById('ryoin-map-overlay');
+  if(tableMgmtMode){bar.style.display='none';if(ov)ov.classList.remove('stamp-on');return;}
+  bar.style.display='';
+  const on=_ryoinStampMode;
+  if(ov)ov.classList.toggle('stamp-on',on);
+  const act='border:1.5px solid var(--green);background:var(--green);color:#fff;',off='border:.5px solid var(--border2);background:none;color:var(--t2);';
+  const base='padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;';
+  let h='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
+    +'<span style="font-size:11px;font-weight:700;color:var(--t2);">操作</span>'
+    +'<button type="button" onclick="setRyoinStampMode(false)" style="'+base+(on?off:act)+'">移動・設定</button>'
+    +'<button type="button" onclick="setRyoinStampMode(true)" style="'+base+(on?act:off)+'">連続割り当て</button>'
+    +'<span style="font-size:11px;color:var(--t3);">'+(on
+      ?(_ryoinStampRoom===''?'タップしたテーブルの割り当てを外します':_ryoinStampRoom?_ryoinStampRoom+'号室を選択中：テーブルをタップ':'部屋を選んでください')
+      :'テーブルをドラッグで移動、タップで設定')+'</span></div>';
+  if(on){
+    const ma=manualAssign[currentVenue]||{};
+    const tidOf={};Object.keys(ma).forEach(function(k){if(ma[k])tidOf[ma[k]]=k;});
+    h+='<div style="display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:6px;padding-bottom:2px;">';
+    _venueGuests().forEach(function(g){
+      const sel=_ryoinStampRoom===g.room;
+      const done=!!tidOf[g.room];
+      const alg=g.badge==='ballergy';
+      h+='<button type="button" onclick="setRyoinStampRoom(\''+g.room+'\')" style="flex-shrink:0;min-width:58px;padding:4px 6px;border-radius:8px;cursor:pointer;line-height:1.2;'
+        +'border:'+(sel?'2.5px solid var(--text)':'1px solid '+(done?'var(--border2)':'var(--green)'))+';'
+        +'background:'+(done?'var(--surface2)':(alg?'var(--red-l)':'var(--green-l)'))+';color:'+(done?'var(--t3)':'var(--text)')+';">'
+        +'<div style="font-size:13px;font-weight:700;">'+escHtml(g.room)+'</div>'
+        +'<div style="font-size:9px;">'+guestPax(g)+'名'+(done?' No.'+tidOf[g.room]:'')+(alg?' ⚠':'')+'</div></button>';
+    });
+    h+='<button type="button" onclick="setRyoinStampRoom(\'\')" style="flex-shrink:0;min-width:52px;padding:4px 6px;border-radius:8px;cursor:pointer;border:'+(_ryoinStampRoom===''?'2.5px solid var(--text)':'.5px solid var(--border2)')+';background:#fff;color:var(--red);font-size:12px;font-weight:700;">外す</button>';
+    h+='</div>';
+  }
+  bar.innerHTML=h;
 }
 function renderRyoin(){renderRyoinMap();}
+// 画面の向きやサイズが変わったら会場図を描き直して大きさを合わせる
+(function(){
+  let tm=null;
+  window.addEventListener('resize',function(){
+    clearTimeout(tm);
+    tm=setTimeout(function(){
+      const ov=document.getElementById('ryoin-map-overlay');
+      if(ov&&ov.style.display!=='none'&&ov.style.display!=='')renderRyoinMap();
+    },150);
+  });
+})();
 function swTools(el){
   const role=window._userRole||'viewer';
   if(role==='viewer'){
@@ -9416,6 +9512,47 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
 </div>
 
 <style>
+.rotate-hint{display:none;}
+@media (max-width:640px) and (orientation:portrait){
+  .rotate-hint{display:block;padding:6px 12px;font-size:11px;color:var(--blue);background:var(--blue-l);text-align:center;}
+}
+/* スマホ横持ち：シフト表を1か月分横幅に収める */
+@media (orientation:landscape) and (max-height:500px){
+  #shift-modal>div{padding:0!important;}
+  #shift-modal>div>div{border-radius:0!important;}
+  #shift-modal .shift-hd{padding:6px 12px!important;}
+  #shift-modal .shift-hd-title{font-size:14px!important;}
+  #shift-modal .shift-hd-btns button{padding:4px 10px!important;font-size:11px!important;}
+  #shift-modal .shift-hd+div{padding:6px 10px!important;}
+  #shift-modal .shift-hd+div>div:first-child{margin-bottom:6px!important;}
+  #shift-month-label{font-size:15px!important;}
+  #shift-counter{flex-wrap:nowrap!important;overflow-x:auto;gap:4px!important;margin-bottom:6px!important;}
+  #shift-counter>div{padding:3px 8px!important;font-size:10px!important;white-space:nowrap;flex-shrink:0;}
+  #shift-legend-box{margin-bottom:6px!important;padding:4px 10px!important;}
+  #shift-table-wrap table{width:100%;table-layout:fixed;}
+  #shift-table-wrap th,#shift-table-wrap td{min-width:0!important;padding:1px 0!important;font-size:10px!important;}
+  #shift-table-wrap td{height:26px!important;}
+  #shift-table-wrap tr>*:first-child{width:62px;padding:2px 4px!important;overflow:hidden;text-overflow:ellipsis;}
+  #shift-table-wrap tr>*:last-child{width:34px;}
+  #shift-table-wrap th>div:nth-child(3){display:none;}
+  #shift-stamp-bar{display:flex;align-items:center;gap:8px;padding:4px 10px!important;}
+  #shift-stamp-bar>div:first-child{margin-bottom:0!important;flex-shrink:0;}
+  #shift-stamp-hint{display:none;}
+  #shift-stamp-codes button{min-width:34px!important;height:32px!important;font-size:13px!important;}
+  /* 会場図：横幅いっぱいに表示 */
+  #ryoin-map-overlay{padding:0!important;}
+  #ryoin-map-overlay .ryoin-map-box{max-width:none!important;border-radius:0!important;}
+  #ryoin-map-overlay .ryoin-map-hd{padding:6px 12px!important;}
+  #ryoin-map-overlay .ryoin-map-area{padding:6px!important;max-height:calc(100dvh - 150px)!important;}
+  #ryoin-stamp-bar{padding:4px 12px!important;display:flex;align-items:center;gap:8px;}
+  #ryoin-stamp-bar>div:first-child{flex-shrink:0;flex-wrap:nowrap!important;}
+  #ryoin-stamp-bar>div:first-child>span:last-child{display:none;}
+  #ryoin-stamp-bar>div:nth-child(2){margin-top:0!important;}
+  #ryoin-map-overlay.stamp-on .ryoin-footer{display:none!important;}
+  #ryoin-map-overlay.stamp-on .ryoin-map-area{max-height:calc(100dvh - 105px)!important;}
+  #ryoin-map-overlay .ryoin-footer{padding:4px 12px!important;flex-wrap:nowrap!important;overflow-x:auto;}
+  #ryoin-map-overlay .ryoin-footer button{white-space:nowrap;padding:4px 10px!important;}
+}
 @media (max-width:640px){
   #shift-modal .shift-hd{flex-wrap:wrap;padding:10px 12px;}
   #shift-modal .shift-hd-title{font-size:15px;flex:1;}
@@ -9450,6 +9587,7 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
           <button onclick="shiftChangeMonth(1)" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:14px;cursor:pointer;color:var(--t2);">▶</button>
           <button onclick="openShiftMemberManager()" class="shift-member-btn" style="margin-left:auto;white-space:nowrap;padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:12px;cursor:pointer;color:var(--t2);">👥 メンバー管理</button>
         </div>
+        <div class="rotate-hint" style="border-radius:8px;margin-bottom:8px;">📱 横向きにすると1か月分を見渡せます</div>
         <!-- 公休カウンター -->
         <div id="shift-counter" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
         <div id="shift-warnings" style="display:none;flex-direction:column;gap:6px;margin-bottom:16px;"></div>
@@ -9597,7 +9735,7 @@ function openShiftManager(){
   el.style.display='block';
   el.scrollTop=0;
   var lg=document.getElementById('shift-legend-box');
-  if(lg)lg.open=window.innerWidth>640;
+  if(lg)lg.open=window.innerWidth>640&&window.innerHeight>500;
   document.body.style.overflow='hidden';
   if(!_shiftLoaded){_loadShiftData();}else{_renderShift();}
 }
