@@ -354,6 +354,7 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
             <button type="button" onclick="setGroup('E')" id="em-grp-E" style="padding:6px 2px;border-radius:var(--r);border:.5px solid var(--border2);background:none;color:var(--t2);font-size:10px;font-weight:700;cursor:pointer;">E</button>
           </div>
           <input type="hidden" id="em-group" value="">
+          <div id="em-group-cur" style="font-size:11px;color:var(--t2);margin:-6px 0 10px;"></div>
           <label class="em-label">人数</label>
           <div id="em-numpad-wrap" style="margin-top:4px;">
             <!-- 通常部屋：大人合計 -->
@@ -1382,7 +1383,7 @@ function buildGuestCard(gu,i){
     const nightsLabel=gu.nights&&gu.nights>1?('<span style="font-size:10px;color:var(--blue);background:var(--blue-l);padding:2px 7px;border-radius:20px;font-weight:600;">'+gu.nights+'泊</span>'):'';
     const _gc=gu.group?getGroupColors(gu.group):null;
     const isTour=gu.group&&gu.group.match(/^T[A-J]/);
-    const groupLabel=_gc?('<span style="font-size:10px;color:'+_gc.text+';background:'+_gc.bg+';border:1px solid '+_gc.border+';padding:2px 7px;border-radius:20px;font-weight:700;">'+(isTour?'':'G')+gu.group+'</span>'):'';
+    const groupLabel=_gc?('<span style="font-size:10px;color:'+_gc.text+';background:'+_gc.bg+';border:1px solid '+_gc.border+';padding:2px 7px;border-radius:20px;font-weight:700;">'+grpLabel(gu.group)+'</span>'):'';
     const stayDayLabel=stayDay>=2?('<span style="font-size:10px;color:var(--green);background:var(--green-l);padding:2px 7px;border-radius:20px;font-weight:600;">'+stayDay+'日目</span>'):'';
     const isCO=gu.checkedOut===true;
     const _gcb=gu.group&&!isCO?getGroupColors(gu.group):null;
@@ -1456,31 +1457,33 @@ function buildGuests(){
   grid.innerHTML='';
   if(!GUESTS.length){grid.innerHTML='<div class="meal-empty">本日のお部屋情報がありません</div>';updateDashboard();updateVenueTabs();updateCheckinSwitchBtn();return;}
   const sorted=GUESTS.slice().sort(function(a,b){return parseInt(a.room)-parseInt(b.room);});
-  const grpColors={'A':'#7F77DD','B':'#1D9E75','C':'#D85A30','D':'#D4537E','E':'#378ADD'};
   const addedGroups=new Set();
   sorted.forEach(function(gu){
     if(gu.group){
-      if(addedGroups.has(gu.group))return;
-      addedGroups.add(gu.group);
-      const members=sorted.filter(function(g){return g.group===gu.group;});
-      const color=grpColors[gu.group]||'#888';
+      // サブグループ（A-1等）は親グループ（A）の枠にまとめて表示
+      const base=grpBase(gu.group);
+      if(addedGroups.has(base))return;
+      addedGroups.add(base);
+      const members=sorted.filter(function(g){return inGrpFamily(g,base);})
+        .sort(function(a,b){return a.group===b.group?parseInt(a.room)-parseInt(b.room):(a.group<b.group?-1:1);});
+      const color=getGroupColors(base).text;
       const wrapper=document.createElement('div');
       wrapper.style.cssText='position:relative;background:var(--surface);border:1.5px solid '+color+';border-radius:var(--rl);padding:18px 10px 10px;margin-top:10px;grid-column:1/-1;';
       const badge=document.createElement('div');
       badge.style.cssText='position:absolute;top:-11px;left:12px;background:'+color+';color:#fff;font-size:10px;font-weight:700;padding:2px 10px;border-radius:20px;';
-      badge.textContent=gu.group+'グループ';
+      badge.textContent=grpLabel(base)+' グループ（'+members.length+'部屋・'+members.reduce(function(s,g){return s+(g.man||0)+(g.woman||0)+(g.ca||0)+(g.cb||0)+(g.baby||0);},0)+'名）';
       wrapper.appendChild(badge);
       const bulkBtn=document.createElement('button');
       bulkBtn.style.cssText='position:absolute;top:6px;right:8px;padding:3px 8px;border-radius:20px;border:0.5px solid '+color+';background:none;color:'+color+';font-size:10px;font-weight:600;cursor:pointer;';
       bulkBtn.textContent='一括編集';
-      (function(grp){bulkBtn.onclick=function(){openGroupBulkEdit(grp);};})(gu.group);
+      (function(grp){bulkBtn.onclick=function(){openGroupBulkEdit(grp);};})(base);
       wrapper.appendChild(bulkBtn);
       // room-gridと同じクラスで横並びグリッド
       const memberGrid=document.createElement('div');
       memberGrid.className='room-grid';
       members.forEach(function(member){
         const card=buildGuestCard(member,GUESTS.indexOf(member));
-        card.style.border='1.5px solid '+color;
+        card.style.border='1.5px solid '+getGroupColors(member.group).border;
         memberGrid.appendChild(card);
       });
       wrapper.appendChild(memberGrid);
@@ -1495,17 +1498,17 @@ function buildGuests(){
   if(document.getElementById('panel-meals').classList.contains('active'))buildMeals();
 }
 function openGroupBulkEdit(grp){
-  const members=GUESTS.filter(function(g){return g.group===grp;});
+  const members=GUESTS.filter(function(g){return inGrpFamily(g,grp);});
   if(!members.length)return;
   const first=members[0];
   _bulkEditGroup=grp;
   openEditModal(GUESTS.indexOf(first));
   const title=document.getElementById('em-title');
-  if(title)title.textContent=grp+'グループ 一括編集（夕食・会場を全員に反映）';
+  if(title)title.textContent=grpLabel(grp)+'グループ 一括編集（夕食・会場を全員に反映）';
   // 削除ボタンのラベルをグループ削除に変更
   const delBtn=document.getElementById('em-del-btn');
   if(delBtn){
-    delBtn.textContent='🗑 '+grp+'グループを全削除';
+    delBtn.textContent='🗑 '+grpLabel(grp)+'グループを全削除';
     delBtn.style.background='var(--red-l)';
   }
 }
@@ -1571,7 +1574,7 @@ function openEditModal(idx){
   document.getElementById('em-note').value=g.note||'';
   // 別注リストを更新
   updateEmBetchuList(g.room||'');
-  setGroup(g.group||'');
+  setGroup(g.group||'',true);
   document.getElementById('em-badge').value=g.badge||'';
   const dc=document.getElementById('em-dinner-charge');if(dc)dc.value=(g.dinnerOrder&&g.dinnerOrder.charge)||'';
   const bc=document.getElementById('em-breakfast-charge');if(bc)bc.value=(g.breakfastOrder&&g.breakfastOrder.charge)||'';
@@ -1587,585 +1590,313 @@ function openEditModal(idx){
   const modal=document.querySelector('#edit-modal-bg .edit-modal');
   if(modal)modal.scrollTop=0;
 }
+// ===== グループ分割 =====
+// グループ名の決まり：団体=A〜J（表示はGA）、ツアー=TA〜TJ、サブグループ=親名-1, -2（GA-1, TA-1）
+const SPLIT_GROUP_LETTERS=['A','B','C','D','E','F','G','H','I','J'];
+function grpBase(grp){return (grp||'').replace(/-\d+$/,'');}
+function grpLabel(grp){
+  if(!grp)return '';
+  return /^T[A-J]/.test(grp)?grp:'G'+grp;
+}
+// 親グループ（サブグループ含む）に属しているか
+function inGrpFamily(g,base){return !!g.group&&grpBase(g.group)===base;}
+function usedGroupNames(){
+  const s=new Set();
+  GUESTS.forEach(function(x){if(x.group)s.add(x.group);});
+  return s;
+}
 function openSplitModal(){
-  var idx2=parseInt(document.getElementById('em-idx').value);
-  var g2=isNaN(idx2)?null:GUESTS[idx2];
-  if(!g2){showToast('先にお部屋を選択してください');return;}
-  var ex=document.getElementById('split-overlay');if(ex)ex.remove();
-  var overlay=document.createElement('div');
-  overlay.id='split-overlay';
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
-  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
-  var box=document.createElement('div');
-  box.style.cssText='background:var(--surface);border-radius:var(--rl);width:100%;max-width:500px;padding:20px;margin:auto;padding-bottom:32px;';
-  box.onclick=function(e){e.stopPropagation();};
-  var ALL_ROOMS2=['101','102','103','105','106','201','202','203','205','206','207','208','301','302','303','305','306','307','401','402','403','405','406','407','408','410','411','412','413','415','417','418','501','502','503','510','511','512','513','515','517','518'];
-  var GRPS=['A','B','C','D','E','F','G','H','I','J'];
-  var curGuest=Object.assign({},g2);
+  const idx=parseInt(document.getElementById('em-idx').value);
+  const src=isNaN(idx)?null:GUESTS[idx];
+  if(!src){showToast('先にお部屋を選択してください');return;}
+  const old=document.getElementById('split-overlay');if(old)old.remove();
 
-  // グループ数・各グループのデータ
-  var grpCount=0;
-  var origGrp='';
-  var splitMode='normal'; // 'normal' or 'sub'（サブグループ分割）
-  var groups=[];
+  const total={man:(src.man||0)+(src.woman||0),ca:src.ca||0,cb:src.cb||0,baby:src.baby||0};
+  const curGrp=src.group||'';
+  const ALL_ROOMS=Array.from(document.querySelectorAll('#em-room option')).map(function(o){return o.value;}).filter(Boolean);
+  const FIELDS=[{k:'man',l:'大人'}].concat(total.ca?[{k:'ca',l:'子A'}]:[],total.cb?[{k:'cb',l:'子B'}]:[],total.baby?[{k:'baby',l:'添い寝'}]:[]);
 
-  // 元部屋が既にグループに属しているか
-  var curGrp=curGuest.group||''; // 例:'A' or 'TA'
-  var isInGroup=!!curGrp; // グループ・ツアーどちらでもサブ分割可能
-
-  function getUsedRooms(exceptGrpIdx,exceptRowIdx){
-    var used=GUESTS.map(function(x){return x.room;}).filter(function(r){return r!==curGuest.room;});
-    groups.forEach(function(gd,gi){
-      gd.rows.forEach(function(r,ri){
-        if(gi===exceptGrpIdx&&ri===exceptRowIdx)return;
-        if(r.room)used.push(r.room);
-      });
-    });
-    return ALL_ROOMS2.filter(function(r){return used.indexOf(r)===-1;});
-  }
-
-  function calcRem(){
-    var assigned={man:0,ca:0,cb:0,baby:0};
-    groups.forEach(function(gd){
-      gd.rows.forEach(function(r){
-        assigned.man+=(r.man||0);assigned.ca+=(r.ca||0);
-        assigned.cb+=(r.cb||0);assigned.baby+=(r.baby||0);
-      });
-    });
-    return {
-      man:(curGuest.man||0)-assigned.man,
-      ca:(curGuest.ca||0)-assigned.ca,
-      cb:(curGuest.cb||0)-assigned.cb,
-      baby:(curGuest.baby||0)-assigned.baby
-    };
-  }
-  function remHtml(){
-    var r=calcRem();
-    var over=r.man<0||r.ca<0||r.cb<0||r.baby<0;
-    var c=over?'var(--red)':'var(--green)';
-    var parts=['大人'+r.man];
-    if(r.ca)parts.push('子A'+r.ca);if(r.cb)parts.push('子B'+r.cb);if(r.baby)parts.push('添'+r.baby);
-    return '残り：<b style="color:'+c+';">'+parts.join('・')+'</b>';
-  }
-  function updateRemBadges(){
-    ['sp-rem','sp-rem-bottom'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML=remHtml();});
-    // 元部屋バッジ更新
-    var ob=document.getElementById('orig-badge');
-    if(ob){
-      var r=calcRem();
-      var parts=[];
-      if(r.man)parts.push('大人'+r.man);if(r.ca)parts.push('子A'+r.ca);if(r.cb)parts.push('子B'+r.cb);if(r.baby)parts.push('添'+r.baby);
-      var over=r.man<0||r.ca<0||r.cb<0||r.baby<0;
-      ob.innerHTML=parts.length
-        ?'<span style="font-size:10px;font-weight:700;color:'+(over?'var(--red)':'var(--green)')+';background:'+(over?'var(--red-l)':'var(--green-l)')+';padding:2px 7px;border-radius:20px;">残り '+parts.join('・')+'</span>'
-        :'<span style="font-size:10px;font-weight:700;color:var(--green);background:var(--green-l);padding:2px 7px;border-radius:20px;">✓ 全振り分け済</span>';
+  const st={
+    mode:curGrp?'same':'group', // same=今のグループに追加 / group=団体 / tour=ツアー / sub=サブグループ
+    count:1,
+    names:[],
+    origGrp:'',
+    rows:[], // {room, grp, man, ca, cb, baby}
+    bulkN:1,bulkPax:{man:2,ca:0,cb:0,baby:0},
+  };
+  function availableNames(mode){
+    const used=usedGroupNames();
+    if(mode==='same')return [curGrp];
+    if(mode==='tour')return SPLIT_GROUP_LETTERS.map(function(l){return 'T'+l;}).filter(function(n){return !used.has(n);});
+    if(mode==='sub'){
+      const base=grpBase(curGrp),list=[];
+      for(let n=1;n<=9;n++){const nm=base+'-'+n;if(!used.has(nm)||nm===curGrp)list.push(nm);}
+      return list;
     }
+    return SPLIT_GROUP_LETTERS.filter(function(n){return !used.has(n);});
+  }
+  function applyNames(){
+    const avail=availableNames(st.mode);
+    st.count=Math.max(1,Math.min(st.count,avail.length||1));
+    st.names=st.mode==='same'?[curGrp]:avail.slice(0,st.count);
+    if(st.names.indexOf(st.origGrp)===-1)st.origGrp=st.names[0]||'';
+    st.rows.forEach(function(r){if(st.names.indexOf(r.grp)===-1)r.grp=st.names[st.names.length>1?1:0]||'';});
+  }
+  function remaining(){
+    const r={man:total.man,ca:total.ca,cb:total.cb,baby:total.baby};
+    st.rows.forEach(function(row){FIELDS.forEach(function(f){r[f.k]-=(row[f.k]||0);});});
+    return r;
+  }
+  function paxText(p){
+    const parts=[];
+    if(p.man)parts.push('大人'+p.man);if(p.ca)parts.push('子A'+p.ca);if(p.cb)parts.push('子B'+p.cb);if(p.baby)parts.push('添い寝'+p.baby);
+    return parts.length?parts.join('・'):'0名';
+  }
+  function freeRooms(exceptRow){
+    const used=GUESTS.map(function(x){return x.room;});
+    st.rows.forEach(function(r){if(r!==exceptRow&&r.room)used.push(r.room);});
+    return ALL_ROOMS.filter(function(r){return used.indexOf(r)===-1;});
+  }
+  function chipStyle(grp,active){
+    const c=getGroupColors(grp);
+    return 'padding:6px 10px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid '+(active?c.border:'var(--border2)')+';background:'+(active?c.bg:'#fff')+';color:'+(active?c.text:'var(--t2)')+';';
+  }
+
+  const overlay=document.createElement('div');
+  overlay.id='split-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--surface);border-radius:var(--rl);width:100%;max-width:520px;margin:auto;';
+  overlay.appendChild(box);
+  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+
+  function el(tag,css,html){const e=document.createElement(tag);if(css)e.style.cssText=css;if(html!=null)e.innerHTML=html;return e;}
+  const LBL='font-size:11px;color:var(--t2);font-weight:700;margin:14px 0 6px;';
+  const INP='width:100%;padding:7px 4px;border:.5px solid var(--border2);border-radius:6px;font-size:14px;text-align:center;background:#fff;';
+
+  function updateSummary(){
+    const rem=remaining();
+    const over=rem.man<0||rem.ca<0||rem.cb<0||rem.baby<0;
+    const zero=!rem.man&&!rem.ca&&!rem.cb&&!rem.baby;
+    const o=document.getElementById('split-orig-pax');
+    if(o){
+      o.textContent=over?'人数オーバー':(zero?'0名（この部屋は削除されます）':paxText(rem));
+      o.style.color=over?'var(--red)':(zero?'var(--amber)':'var(--green)');
+    }
+    const b=document.getElementById('split-summary');
+    if(b){
+      b.innerHTML=over
+        ?'⚠ 元の人数より多く振り分けています（'+paxText({man:Math.max(0,-rem.man),ca:Math.max(0,-rem.ca),cb:Math.max(0,-rem.cb),baby:Math.max(0,-rem.baby)})+' 超過）'
+        :'元の部屋（'+escHtml(src.room)+'号室）に残る人数：<b>'+paxText(rem)+'</b>';
+      b.style.background=over?'var(--red-l)':'var(--green-l)';
+      b.style.color=over?'var(--red)':'var(--green)';
+    }
+    const save=document.getElementById('split-save');
+    if(save){save.disabled=over;save.style.opacity=over?'.5':'1';}
   }
 
   function render(){
+    applyNames();
     box.innerHTML='';
-    var rem=calcRem();
-    var isOver=rem.man<0||rem.ca<0||rem.cb<0||rem.baby<0;
+    // ヘッダー
+    const hd=el('div','display:flex;justify-content:space-between;align-items:center;padding:16px 18px 10px;');
+    hd.appendChild(el('div','font-size:15px;font-weight:700;','🔀 グループ分割'));
+    const x=el('button','background:none;border:none;font-size:20px;color:var(--t3);cursor:pointer;','✕');x.type='button';x.onclick=function(){overlay.remove();};
+    hd.appendChild(x);box.appendChild(hd);
+    const body=el('div','padding:0 18px 12px;');
+    box.appendChild(body);
+    body.appendChild(el('div','font-size:13px;padding:9px 12px;background:var(--surface2);border-radius:var(--r);',
+      '<b>'+escHtml(src.room)+'号室</b>　'+paxText(total)+(curGrp?'　<span style="'+chipStyle(curGrp,true)+'padding:1px 8px;font-size:11px;">'+grpLabel(curGrp)+'</span>':'')));
 
-    // タイトル
-    var ttl=document.createElement('div');
-    ttl.style.cssText='font-size:15px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;';
-    var closeX=document.createElement('button');
-    closeX.textContent='✕';closeX.style.cssText='background:none;border:none;font-size:18px;color:var(--t3);cursor:pointer;';
-    closeX.onclick=function(){overlay.remove();};
-    ttl.appendChild(document.createTextNode('🔀 グループ分割'));
-    ttl.appendChild(closeX);
-    box.appendChild(ttl);
-
-    // 元部屋情報
-    var info=document.createElement('div');
-    info.style.cssText='font-size:12px;padding:8px 10px;background:var(--surface2);border-radius:var(--r);margin-bottom:14px;';
-    info.innerHTML='<b>'+curGuest.room+'号室</b>　大人'+(curGuest.man||0)+((curGuest.ca||0)?'・子A'+(curGuest.ca||0):'')+((curGuest.cb||0)?'・子B'+(curGuest.cb||0):'')+((curGuest.baby||0)?'・添'+(curGuest.baby||0):'')
-      +(groups.length?'　<span id="sp-rem" style="color:'+(isOver?'var(--red)':'var(--green)')+';font-weight:700;">'+remHtml()+'</span>':'');
-    box.appendChild(info);
-
-    // STEP1: 分割モード選択
-    var s1=document.createElement('div');
-    s1.style.cssText='margin-bottom:14px;';
-    var s1lbl=document.createElement('div');
-    s1lbl.style.cssText='font-size:11px;color:var(--t2);font-weight:700;margin-bottom:6px;';
-    s1lbl.textContent='① 分割の種類を選択';
-    s1.appendChild(s1lbl);
-    var modeRow=document.createElement('div');
-    modeRow.style.cssText='display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;';
-    var modes=[
-      {mode:'normal',label:'🔀 グループ分割',desc:'GA・GB・GCなど',color:'var(--blue)'},
-      {mode:'tour',label:'🚌 ツアー分割',desc:'TA・TB・TCなど',color:'var(--green)'},
-      {mode:'sub',label:'🔀 サブグループ',desc:curGrp?'G'+curGrp+'-1・G'+curGrp+'-2など':'グループ所属のみ',color:'var(--blue)'},
-    ];
-    modes.forEach(function(m){
-      if(m.mode==='sub'&&!isInGroup)return;
-      var active=splitMode===m.mode;
-      var btn=document.createElement('button');
-      btn.type='button';
-      btn.style.cssText='flex:1;min-width:80px;padding:8px 6px;border-radius:var(--r);border:2px solid '+(active?m.color:'var(--border2)')+';background:'+(active?'var(--surface2)':'var(--surface2)')+';color:'+(active?m.color:'var(--t2)')+';font-size:11px;font-weight:700;cursor:pointer;text-align:center;';
-      btn.innerHTML=m.label+'<div style="font-size:9px;font-weight:400;color:'+(active?m.color:'var(--t3)')+';">'+m.desc+'</div>';
-      if(active)btn.style.borderWidth='2px';
-      btn.onclick=(function(md){return function(){
-        splitMode=md;grpCount=0;origGrp='';groups=[];render();
-      };})(m.mode);
-      modeRow.appendChild(btn);
+    // ① 分け方
+    body.appendChild(el('div',LBL,'① 分け方'));
+    const modes=[];
+    if(curGrp)modes.push({m:'same',t:'今のグループに部屋を追加',d:grpLabel(curGrp)+'のまま'});
+    modes.push({m:'group',t:'団体で分ける',d:'GA・GB…'});
+    modes.push({m:'tour',t:'ツアーで分ける',d:'TA・TB…'});
+    if(curGrp)modes.push({m:'sub',t:'サブグループに分ける',d:grpLabel(grpBase(curGrp))+'-1・-2…'});
+    const mrow=el('div','display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;');
+    modes.forEach(function(md){
+      const on=st.mode===md.m;
+      const b=el('button','padding:8px 4px;border-radius:var(--r);border:2px solid '+(on?'var(--blue)':'var(--border2)')+';background:'+(on?'var(--blue-l)':'#fff')+';color:'+(on?'var(--blue)':'var(--t2)')+';font-size:11px;font-weight:700;cursor:pointer;line-height:1.3;',
+        md.t+'<div style="font-size:10px;font-weight:400;">'+md.d+'</div>');
+      b.type='button';b.onclick=function(){st.mode=md.m;st.count=1;st.origGrp='';render();};
+      mrow.appendChild(b);
     });
-    s1.appendChild(modeRow);
+    body.appendChild(mrow);
 
-    // グループ数選択
-    var s1lbl2=document.createElement('div');
-    s1lbl2.style.cssText='font-size:11px;color:var(--t2);font-weight:700;margin-bottom:6px;';
-    s1lbl2.textContent='② 何グループに分けますか？';
-    s1.appendChild(s1lbl2);
-    var s1btns=document.createElement('div');
-    s1btns.style.cssText='display:flex;gap:5px;flex-wrap:wrap;';
-    [1,2,3,4,5,6,7,8].forEach(function(n){
-      var active=grpCount===n;
-      var btn=document.createElement('button');
-      btn.textContent=n+'グループ';
-      btn.style.cssText='padding:8px 6px;border-radius:var(--r);border:2px solid '+(active?'var(--blue)':'var(--border2)')+';background:'+(active?'var(--blue-l)':'var(--surface2)')+';color:'+(active?'var(--blue)':'var(--t2)')+';font-size:12px;font-weight:700;cursor:pointer;min-width:44px;';
-      btn.onclick=(function(num){return function(){
-        grpCount=num;
-        var usedGrpNames=new Set();
-        GUESTS.forEach(function(x){if(x.group)usedGrpNames.add(x.group);});
-        if(splitMode==='tour'){
-          // ツアー: TA, TB, TC...
-          var availTour=TOUR_LABELS.map(function(l){return 'T'+l;}).filter(function(g){return !usedGrpNames.has(g);});
-          var tourPool=availTour.length>=num?availTour:TOUR_LABELS.map(function(l){return 'T'+l;});
-          if(num===1){
-            origGrp=tourPool[0];
-            groups=[{grp:tourPool[0],rows:[]}];
-          } else {
-            origGrp='';
-            groups=tourPool.slice(0,num).map(function(g){return {grp:g,rows:[]};});
-          }
-        } else if(splitMode==='sub'){
-          // サブグループ: GA-1, GA-2, ... の形式
-          var subGrps=[];
-          for(var n=1;n<=num+5;n++){
-            var sg=curGrp+'-'+n;
-            if(!usedGrpNames.has(sg))subGrps.push(sg);
-            if(subGrps.length>=num)break;
-          }
-          if(num===1){
-            origGrp=subGrps[0];
-            groups=[{grp:subGrps[0],rows:[]}];
-          } else {
-            origGrp='';
-            groups=subGrps.map(function(g){return {grp:g,rows:[]};});
-          }
-        } else {
-          // 通常グループ: A, B, C...
-          var availGrpNames=GRPS.filter(function(g){return !usedGrpNames.has(g);});
-          var grpPool=availGrpNames.length>=num?availGrpNames:GRPS;
-          if(num===1){
-            origGrp=grpPool[0];
-            groups=[{grp:grpPool[0],rows:[]}];
-          } else {
-            origGrp='';
-            groups=grpPool.slice(0,num).map(function(g){return {grp:g,rows:[]};});
-          }
+    // ② グループ数
+    if(st.mode!=='same'){
+      const avail=availableNames(st.mode);
+      body.appendChild(el('div',LBL,'② いくつのグループに分けますか？'));
+      if(!avail.length){
+        body.appendChild(el('div','font-size:12px;color:var(--red);','使えるグループ名が残っていません'));
+      } else {
+        const crow=el('div','display:flex;gap:6px;flex-wrap:wrap;align-items:center;');
+        for(let n=1;n<=Math.min(6,avail.length);n++){
+          const on=st.count===n;
+          const b=el('button','min-width:44px;padding:7px 10px;border-radius:var(--r);border:2px solid '+(on?'var(--blue)':'var(--border2)')+';background:'+(on?'var(--blue-l)':'#fff')+';color:'+(on?'var(--blue)':'var(--t2)')+';font-size:13px;font-weight:700;cursor:pointer;',String(n));
+          b.type='button';b.onclick=function(){st.count=n;render();};
+          crow.appendChild(b);
         }
-        render();
-      };})(n);
-      s1btns.appendChild(btn);
-    });
-    s1.appendChild(s1btns);
-    box.appendChild(s1);
-    if(!grpCount){overlay.appendChild(box);return;}
-
-    // STEP2: 元部屋のグループ選択（2グループ以上の場合のみ）
-    var s2=document.createElement('div');
-    if(grpCount>=2){
-    s2.style.cssText='margin-bottom:14px;';
-    var s2lbl=document.createElement('div');
-    s2lbl.style.cssText='font-size:11px;color:var(--t2);font-weight:700;margin-bottom:6px;';
-    s2lbl.textContent='③ 元部屋（'+curGuest.room+'号室）はどの'+(splitMode==='sub'?'サブ':'')+'グループ？';
-    s2.appendChild(s2lbl);
-    var s2btns=document.createElement('div');
-    s2btns.style.cssText='display:flex;gap:6px;flex-wrap:wrap;';
-    groups.forEach(function(gd){
-      var gr=gd.grp;
-      var active=origGrp===gr;
-      var _gcp=getGroupColors(gr.charAt(0));var gc=_gcp.bg,gb=_gcp.border,gt2=_gcp.text;
-      var btn=document.createElement('button');
-      btn.textContent='G'+gr;
-      btn.style.cssText='flex:1;padding:8px 4px;border-radius:var(--r);border:2px solid '+(active?gb:'var(--border2)')+';background:'+(active?gc:'var(--surface2)')+';color:'+(active?gt2:'var(--t2)')+';font-size:13px;font-weight:700;cursor:pointer;';
-      btn.onclick=(function(g){return function(){origGrp=g;render();};})(gr);
-      s2btns.appendChild(btn);
-    });
-    s2.appendChild(s2btns);
-    box.appendChild(s2);
-    if(!origGrp){overlay.appendChild(box);return;}
-    } // end grpCount>=2
-
-    // STEP3: 各グループの追加部屋入力
-    var s3lbl=document.createElement('div');
-    s3lbl.style.cssText='font-size:11px;color:var(--t2);font-weight:700;margin-bottom:8px;';
-    s3lbl.textContent=(splitMode==='sub'?'③':'③')+' 各'+(splitMode==='sub'?'サブ':'')+'グループの追加部屋と人数を入力';
-    box.appendChild(s3lbl);
-
-    // 一括人数設定
-    var bulkWrap=document.createElement('div');
-    bulkWrap.style.cssText='padding:10px;background:#eff6ff;border:.5px solid #bfdbfe;border-radius:var(--r);margin-bottom:10px;';
-    var bulkLbl=document.createElement('div');
-    bulkLbl.style.cssText='font-size:11px;font-weight:700;color:#1e40af;margin-bottom:8px;';
-    bulkLbl.textContent='⚡ 一括人数設定（全部屋に反映）';
-    bulkWrap.appendChild(bulkLbl);
-    var bulkRow=document.createElement('div');
-    bulkRow.style.cssText='display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;';
-    // 大人
-    var bManWrap=document.createElement('div');
-    var bManLbl=document.createElement('div');bManLbl.style.cssText='font-size:10px;color:var(--t2);margin-bottom:2px;';bManLbl.textContent='大人';
-    var bManInp=document.createElement('input');bManInp.type='number';bManInp.min=0;bManInp.value=0;
-    bManInp.style.cssText='width:54px;padding:6px 4px;border:.5px solid var(--border2);border-radius:6px;font-size:13px;text-align:center;background:#fff;';
-    bManWrap.appendChild(bManLbl);bManWrap.appendChild(bManInp);
-    bulkRow.appendChild(bManWrap);
-    // 子A（いる場合のみ）
-    var bCaWrap,bCaInp;
-    if((curGuest.ca||0)>0){
-      bCaWrap=document.createElement('div');
-      var bCaLbl=document.createElement('div');bCaLbl.style.cssText='font-size:10px;color:var(--t2);margin-bottom:2px;';bCaLbl.textContent='子A';
-      bCaInp=document.createElement('input');bCaInp.type='number';bCaInp.min=0;bCaInp.value=0;
-      bCaInp.style.cssText='width:54px;padding:6px 4px;border:.5px solid var(--border2);border-radius:6px;font-size:13px;text-align:center;background:#fff;';
-      bCaWrap.appendChild(bCaLbl);bCaWrap.appendChild(bCaInp);bulkRow.appendChild(bCaWrap);
+        crow.appendChild(el('div','font-size:12px;color:var(--t2);margin-left:4px;','→ '+st.names.map(grpLabel).join('・')));
+        body.appendChild(crow);
+      }
     }
-    // 子B
-    var bCbWrap,bCbInp;
-    if((curGuest.cb||0)>0){
-      bCbWrap=document.createElement('div');
-      var bCbLbl=document.createElement('div');bCbLbl.style.cssText='font-size:10px;color:var(--t2);margin-bottom:2px;';bCbLbl.textContent='子B';
-      bCbInp=document.createElement('input');bCbInp.type='number';bCbInp.min=0;bCbInp.value=0;
-      bCbInp.style.cssText='width:54px;padding:6px 4px;border:.5px solid var(--border2);border-radius:6px;font-size:13px;text-align:center;background:#fff;';
-      bCbWrap.appendChild(bCbLbl);bCbWrap.appendChild(bCbInp);bulkRow.appendChild(bCbWrap);
-    }
-    // 添い寝
-    var bBabyWrap,bBabyInp;
-    if((curGuest.baby||0)>0){
-      bBabyWrap=document.createElement('div');
-      var bBabyLbl=document.createElement('div');bBabyLbl.style.cssText='font-size:10px;color:var(--t2);margin-bottom:2px;';bBabyLbl.textContent='添い寝';
-      bBabyInp=document.createElement('input');bBabyInp.type='number';bBabyInp.min=0;bBabyInp.value=0;
-      bBabyInp.style.cssText='width:54px;padding:6px 4px;border:.5px solid var(--border2);border-radius:6px;font-size:13px;text-align:center;background:#fff;';
-      bBabyWrap.appendChild(bBabyLbl);bBabyWrap.appendChild(bBabyInp);bulkRow.appendChild(bBabyWrap);
-    }
-    // 一括反映ボタン
-    var bApplyBtn=document.createElement('button');
-    bApplyBtn.type='button';bApplyBtn.textContent='全部屋に反映';
-    bApplyBtn.style.cssText='padding:7px 12px;border-radius:var(--r);border:none;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;';
-    bApplyBtn.addEventListener('click',function(){
-      var man=parseInt(bManInp.value)||0;
-      var ca=bCaInp?parseInt(bCaInp.value)||0:0;
-      var cb=bCbInp?parseInt(bCbInp.value)||0:0;
-      var baby=bBabyInp?parseInt(bBabyInp.value)||0:0;
-      if(!man&&!ca&&!cb&&!baby){showToast('人数を入力してください');return;}
-      groups.forEach(function(gd){
-        gd.rows.forEach(function(r){
-          r.man=man;r.ca=ca;r.cb=cb;r.baby=baby;
-        });
+
+    // ③ 部屋と人数
+    body.appendChild(el('div',LBL,(st.mode==='same'?'②':'③')+' 部屋と人数'));
+    const list=el('div','display:flex;flex-direction:column;gap:8px;');
+    // 元の部屋
+    const orow=el('div','padding:9px 10px;border-radius:var(--r);background:var(--surface2);border:1.5px solid '+getGroupColors(st.origGrp).border+';');
+    const otop=el('div','display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;');
+    otop.appendChild(el('div','font-size:13px;font-weight:700;','🏠 '+escHtml(src.room)+'号室 <span style="font-size:10px;color:var(--t3);font-weight:400;">元の部屋</span>'));
+    if(st.names.length>1){
+      const gs=el('div','display:flex;gap:4px;');
+      st.names.forEach(function(nm){
+        const b=el('button',chipStyle(nm,st.origGrp===nm)+'padding:3px 9px;font-size:11px;',grpLabel(nm));
+        b.type='button';b.onclick=function(){st.origGrp=nm;render();};
+        gs.appendChild(b);
       });
+      otop.appendChild(gs);
+    } else if(st.origGrp){
+      otop.appendChild(el('span',chipStyle(st.origGrp,true)+'padding:2px 9px;font-size:11px;cursor:default;',grpLabel(st.origGrp)));
+    }
+    orow.appendChild(otop);
+    orow.appendChild(el('div','font-size:12px;margin-top:5px;color:var(--t2);','残る人数：<b id="split-orig-pax"></b>'));
+    list.appendChild(orow);
+
+    // 追加する部屋
+    st.rows.forEach(function(row,ri){
+      const c=getGroupColors(row.grp);
+      const r=el('div','padding:9px 10px;border-radius:var(--r);background:#fff;border:1.5px solid '+c.border+';');
+      const top=el('div','display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;');
+      const sel=document.createElement('select');
+      sel.style.cssText='flex:1;min-width:110px;padding:7px 8px;border:.5px solid var(--border2);border-radius:6px;font-size:14px;background:#fff;';
+      sel.innerHTML='<option value="">部屋を選択…</option>'+freeRooms(row).map(function(rm){return '<option value="'+rm+'"'+(rm===row.room?' selected':'')+'>'+rm+'号室</option>';}).join('');
+      sel.onchange=function(){row.room=this.value;render();};
+      top.appendChild(sel);
+      if(st.names.length>1){
+        st.names.forEach(function(nm){
+          const b=el('button',chipStyle(nm,row.grp===nm)+'padding:4px 9px;font-size:11px;',grpLabel(nm));
+          b.type='button';b.onclick=function(){row.grp=nm;render();};
+          top.appendChild(b);
+        });
+      } else if(row.grp){
+        top.appendChild(el('span',chipStyle(row.grp,true)+'padding:3px 9px;font-size:11px;cursor:default;',grpLabel(row.grp)));
+      }
+      const del=el('button','border:none;background:var(--red-l);color:var(--red);border-radius:20px;padding:4px 9px;font-size:11px;cursor:pointer;','削除');
+      del.type='button';del.onclick=function(){st.rows.splice(ri,1);render();};
+      top.appendChild(del);
+      r.appendChild(top);
+      const nums=el('div','display:grid;grid-template-columns:repeat('+FIELDS.length+',1fr);gap:6px;');
+      FIELDS.forEach(function(f){
+        const w=el('div','');
+        w.appendChild(el('div','font-size:10px;color:var(--t2);margin-bottom:2px;text-align:center;',f.l));
+        const inp=document.createElement('input');
+        inp.type='number';inp.min=0;inp.inputMode='numeric';inp.value=row[f.k]||0;inp.style.cssText=INP;
+        inp.oninput=function(){row[f.k]=Math.max(0,parseInt(this.value)||0);updateSummary();};
+        inp.onfocus=function(){this.select();};
+        w.appendChild(inp);nums.appendChild(w);
+      });
+      r.appendChild(nums);
+      list.appendChild(r);
+    });
+    body.appendChild(list);
+
+    // 部屋を追加（まとめて）
+    const add=el('div','margin-top:10px;padding:10px;border:1.5px dashed var(--border2);border-radius:var(--r);');
+    add.appendChild(el('div','font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;','＋ 部屋を追加（1部屋あたりの人数）'));
+    const arow=el('div','display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;');
+    function mini(label,val,on){
+      const w=el('div','width:58px;');
+      w.appendChild(el('div','font-size:10px;color:var(--t2);margin-bottom:2px;text-align:center;',label));
+      const i=document.createElement('input');i.type='number';i.min=0;i.inputMode='numeric';i.value=val;i.style.cssText=INP;
+      i.oninput=function(){on(Math.max(0,parseInt(this.value)||0));};i.onfocus=function(){this.select();};
+      w.appendChild(i);return w;
+    }
+    arow.appendChild(mini('部屋数',st.bulkN,function(v){st.bulkN=v;}));
+    FIELDS.forEach(function(f){arow.appendChild(mini(f.l,st.bulkPax[f.k],function(v){st.bulkPax[f.k]=v;}));});
+    const ab=el('button','padding:8px 14px;border-radius:var(--r);border:none;background:var(--blue);color:#fff;font-size:12px;font-weight:700;cursor:pointer;','追加');
+    ab.type='button';
+    ab.onclick=function(){
+      const n=Math.max(1,st.bulkN||1);
+      // 元の部屋と違うグループを初期値にする（1グループならそのグループ）
+      const grp=st.names.find(function(nm){return nm!==st.origGrp;})||st.names[0]||'';
+      for(let k=0;k<n;k++){
+        st.rows.push({room:'',grp:grp,man:st.bulkPax.man||0,ca:st.bulkPax.ca||0,cb:st.bulkPax.cb||0,baby:st.bulkPax.baby||0});
+      }
       render();
-      showToast('全部屋に反映しました');
-    });
-    bulkRow.appendChild(bApplyBtn);
-    bulkWrap.appendChild(bulkRow);
-    box.appendChild(bulkWrap);
-
-    var allRowsDiv=document.createElement('div');
-    allRowsDiv.style.cssText='display:flex;flex-direction:column;gap:10px;margin-bottom:12px;';
-
-    groups.forEach(function(gd,gi){
-      var _gcp2=getGroupColors(gd.grp.charAt(0));var gc=_gcp2.bg,gb=_gcp2.border,gt2=_gcp2.text;
-      var grpBlock=document.createElement('div');
-      grpBlock.style.cssText='border:1.5px solid '+gb+';border-radius:var(--r);overflow:hidden;';
-
-      // グループヘッダー
-      var grpHdr=document.createElement('div');
-      grpHdr.style.cssText='background:'+gc+';padding:8px 10px;display:flex;justify-content:space-between;align-items:center;';
-      var grpHdrLeft=document.createElement('div');
-      grpHdrLeft.style.cssText='font-size:12px;font-weight:700;color:'+gt2+';display:flex;align-items:center;gap:6px;';
-      grpHdrLeft.textContent='G'+gd.grp+(gd.grp===origGrp?' （元部屋含む）':'');
-      // 元部屋バッジ（origGrpのみ）
-      if(gd.grp===origGrp){
-        var origBadge=document.createElement('span');
-        origBadge.id='orig-badge';
-        origBadge.style.cssText='font-size:10px;';
-        var r2=calcRem();
-        var parts2=[];
-        if(r2.man)parts2.push('大人'+r2.man);if(r2.ca)parts2.push('子A'+r2.ca);if(r2.cb)parts2.push('子B'+r2.cb);if(r2.baby)parts2.push('添'+r2.baby);
-        origBadge.innerHTML=parts2.length?'<span style="font-size:10px;font-weight:700;color:'+gt2+';background:#fff;padding:1px 6px;border-radius:20px;">残'+parts2.join('・')+'</span>':'';
-        grpHdrLeft.appendChild(origBadge);
-      }
-      grpHdr.appendChild(grpHdrLeft);
-      grpBlock.appendChild(grpHdr);
-
-      var grpBody=document.createElement('div');
-      grpBody.style.cssText='padding:8px 10px;background:#fff;display:flex;flex-direction:column;gap:6px;';
-
-      // 元部屋行（origGrpのみ先頭に表示）
-      if(gd.grp===origGrp){
-        var origRow=document.createElement('div');
-        origRow.style.cssText='padding:6px 8px;background:var(--surface2);border-radius:var(--r);font-size:11px;color:var(--t2);';
-        origRow.textContent='🏠 '+curGuest.room+'号室（振り分け後の残り人数が自動で残ります）';
-        grpBody.appendChild(origRow);
-      }
-
-      // 追加部屋行
-      gd.rows.forEach(function(row,ri){
-        var rowEl=document.createElement('div');
-        rowEl.style.cssText='display:flex;flex-direction:column;gap:4px;padding:7px 8px;background:var(--surface2);border-radius:var(--r);';
-
-        // 行ヘッダー
-        var rhdr=document.createElement('div');
-        rhdr.style.cssText='display:flex;justify-content:space-between;align-items:center;';
-        var rhdrL=document.createElement('div');
-        rhdrL.style.cssText='display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:'+gt2+';';
-        rhdrL.textContent=(ri+1)+'部屋目';
-        // 人数バッジ
-        var rbadge=document.createElement('span');
-        rbadge.id='row-badge-'+gi+'-'+ri;
-        var parts3=[];
-        if(row.man)parts3.push('大人'+row.man);if(row.ca)parts3.push('子A'+row.ca);if(row.cb)parts3.push('子B'+row.cb);if(row.baby)parts3.push('添'+row.baby);
-        rbadge.innerHTML=parts3.length?'<span style="font-size:10px;font-weight:700;color:'+gt2+';background:#fff;border:1px solid '+gb+';padding:1px 6px;border-radius:20px;">'+parts3.join('・')+'</span>':'<span style="font-size:10px;color:var(--t3);">未入力</span>';
-        rhdrL.appendChild(rbadge);
-        rhdr.appendChild(rhdrL);
-        // 削除ボタン
-        var delBtn=document.createElement('button');
-        delBtn.type='button';delBtn.textContent='🗑 削除';
-        delBtn.style.cssText='padding:2px 7px;border-radius:20px;border:none;background:var(--red-l);color:var(--red);font-size:10px;cursor:pointer;';
-        (function(gidx,ridx){delBtn.addEventListener('click',function(){
-          groups[gidx].rows.splice(ridx,1);render();
-        });})(gi,ri);
-        rhdr.appendChild(delBtn);
-        rowEl.appendChild(rhdr);
-
-        // 入力欄
-        var rinp=document.createElement('div');
-        rinp.style.cssText='display:flex;gap:5px;align-items:flex-end;';
-        // 部屋番号
-        var rd=document.createElement('div');rd.style.cssText='flex:2;';
-        var rdl=document.createElement('div');rdl.style.cssText='font-size:10px;color:var(--t2);margin-bottom:2px;';rdl.textContent='部屋番号';
-        var rsel=document.createElement('select');
-        rsel.className='split-room-sel';
-        rsel.style.cssText='width:100%;padding:6px 8px;border:.5px solid var(--border2);border-radius:6px;font-size:13px;background:#fff;';
-        var defOpt2=document.createElement('option');defOpt2.value='';defOpt2.textContent='選択...';rsel.appendChild(defOpt2);
-        var er=getUsedRooms(gi,ri);
-        if(row.room&&er.indexOf(row.room)===-1)er.push(row.room);
-        er.forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r+'号室';if(r===row.room)o.selected=true;rsel.appendChild(o);});
-        (function(gidx,ridx){rsel.onchange=function(){
-          groups[gidx].rows[ridx].room=this.value;
-          updateRemBadges();
-          // 他の全セレクトを再構築して選択済み部屋を除外
-          allRowsDiv.querySelectorAll('select.split-room-sel').forEach(function(s2el){
-            if(s2el===rsel)return;
-            var gi2=parseInt(s2el.dataset.gi);
-            var ri2=parseInt(s2el.dataset.ri);
-            var curRoom=groups[gi2].rows[ri2].room;
-            var er2=getUsedRooms(gi2,ri2);
-            s2el.innerHTML='<option value="">選択...</option>';
-            er2.forEach(function(r){
-              var o=document.createElement('option');
-              o.value=r;o.textContent=r+'号室';
-              if(r===curRoom)o.selected=true;
-              s2el.appendChild(o);
-            });
-          });
-        };})(gi,ri);
-        rsel.dataset.gi=gi;
-        rsel.dataset.ri=ri;
-        rd.appendChild(rdl);rd.appendChild(rsel);rinp.appendChild(rd);
-
-        // 人数入力
-        function makeNumInput(label,field,val,gidx,ridx){
-          var d=document.createElement('div');d.style.cssText='flex:1;';
-          var l=document.createElement('div');l.style.cssText='font-size:10px;color:var(--t2);margin-bottom:2px;';l.textContent=label;
-          var inp=document.createElement('input');inp.type='number';inp.value=val||0;inp.min=0;
-          inp.style.cssText='width:100%;padding:6px 4px;border:.5px solid var(--border2);border-radius:6px;font-size:13px;text-align:center;background:#fff;';
-          (function(gi2,ri2,f){inp.oninput=function(){
-            groups[gi2].rows[ri2][f]=parseInt(this.value)||0;
-            // バッジ更新
-            var parts4=[];
-            var rw=groups[gi2].rows[ri2];
-            if(rw.man)parts4.push('大人'+rw.man);if(rw.ca)parts4.push('子A'+rw.ca);if(rw.cb)parts4.push('子B'+rw.cb);if(rw.baby)parts4.push('添'+rw.baby);
-            var bid=document.getElementById('row-badge-'+gi2+'-'+ri2);
-            if(bid)bid.innerHTML=parts4.length?'<span style="font-size:10px;font-weight:700;color:'+GROUP_TEXT[groups[gi2].grp]+';background:#fff;border:1px solid '+GROUP_BORDER[groups[gi2].grp]+';padding:1px 6px;border-radius:20px;">'+parts4.join('・')+'</span>':'<span style="font-size:10px;color:var(--t3);">未入力</span>';
-            updateRemBadges();
-          };})(gi,ri,field);
-          d.appendChild(l);d.appendChild(inp);return d;
-        }
-        rinp.appendChild(makeNumInput('大人','man',row.man,gi,ri));
-        if(curGuest.ca>0)rinp.appendChild(makeNumInput('子A','ca',row.ca,gi,ri));
-        if(curGuest.cb>0)rinp.appendChild(makeNumInput('子B','cb',row.cb,gi,ri));
-        if(curGuest.baby>0)rinp.appendChild(makeNumInput('添い寝','baby',row.baby,gi,ri));
-        rowEl.appendChild(rinp);
-        grpBody.appendChild(rowEl);
-      });
-
-      // 部屋数選択＋追加ボタン
-      var addWrap=document.createElement('div');
-      addWrap.style.cssText='display:flex;gap:6px;align-items:center;margin-top:4px;';
-      var addSel=document.createElement('select');
-      addSel.style.cssText='flex:1;padding:7px 8px;border:1.5px dashed '+gb+';border-radius:var(--r);background:none;color:'+gt2+';font-size:12px;font-weight:700;cursor:pointer;';
-      // 空き部屋数を計算（全室 - 使用中 - 既に追加済みの部屋）
-      var usedRooms=GUESTS.map(function(x){return x.room;});
-      var addedRooms=[];
-      groups.forEach(function(gd2){gd2.rows.forEach(function(r){if(r.room)addedRooms.push(r.room);});});
-      var availCount=ALL_ROOMS2.filter(function(r){
-        return usedRooms.indexOf(r)===-1&&addedRooms.indexOf(r)===-1;
-      }).length;
-      var maxAdd=Math.max(1,availCount);
-      for(var n=1;n<=maxAdd;n++){
-        var o=document.createElement('option');
-        o.value=n;o.textContent=n+'部屋追加';
-        addSel.appendChild(o);
-      }
-      var addBtn=document.createElement('button');
-      addBtn.type='button';addBtn.textContent='＋ 追加';
-      addBtn.style.cssText='padding:7px 14px;border:1.5px solid '+gb+';border-radius:var(--r);background:'+gc+';color:'+gt2+';font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;';
-      (function(gidx,sel){addBtn.addEventListener('click',function(){
-        var n=parseInt(sel.value)||1;
-        for(var k=0;k<n;k++)groups[gidx].rows.push({room:'',man:0,ca:0,cb:0,baby:0});
-        render();
-      });})(gi,addSel);
-      addWrap.appendChild(addSel);addWrap.appendChild(addBtn);
-      grpBody.appendChild(addWrap);
-      grpBlock.appendChild(grpBody);
-      allRowsDiv.appendChild(grpBlock);
-    });
-
-    box.appendChild(allRowsDiv);
-
-    // 残り人数
-    var remDiv=document.createElement('div');
-    remDiv.id='sp-rem-bottom';
-    remDiv.style.cssText='font-size:12px;text-align:center;margin-bottom:12px;padding:6px;background:var(--surface2);border-radius:var(--r);';
-    remDiv.innerHTML=remHtml();
-    box.appendChild(remDiv);
-
-    // 保存ボタン
-    var saveBtn=document.createElement('button');
-    saveBtn.type='button';saveBtn.textContent='✅ 保存';
-    saveBtn.style.cssText='width:100%;padding:12px;border-radius:var(--r);border:none;background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;';
-    saveBtn.onclick=function(){
-      // グループごとに保存
-      var allRows=[];
-      groups.forEach(function(gd){
-        gd.rows.forEach(function(r){
-          allRows.push(Object.assign({},r,{group:gd.grp}));
-        });
-      });
-      // 元部屋のグループを設定
-      var rem2=calcRem();
-      allRows.push({room:curGuest.room,man:rem2.man,ca:rem2.ca,cb:rem2.cb,baby:rem2.baby,group:origGrp,_isOrig:true});
-      // バリデーション
-      for(var i=0;i<allRows.length-1;i++){
-        if(!allRows[i].room){showToast('未選択の部屋があります');return;}
-      }
-      if(rem2.man<0||rem2.ca<0||rem2.cb<0||rem2.baby<0){showToast('人数が超過しています');return;}
-      executeSplitMulti(idx2,curGuest,allRows,origGrp,function(newGuest){
-        curGuest=Object.assign({},newGuest);
-        grpCount=0;origGrp='';groups=[];render();
-      });
     };
-    box.appendChild(saveBtn);
+    arow.appendChild(ab);
+    add.appendChild(arow);
+    body.appendChild(add);
 
-    var closeBtn=document.createElement('button');
-    closeBtn.type='button';closeBtn.textContent='閉じる';
-    closeBtn.style.cssText='width:100%;padding:10px;border-radius:var(--r);border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;';
-    closeBtn.onclick=function(){overlay.remove();};
-    box.appendChild(closeBtn);
+    // フッター（残り人数＋保存）
+    const ft=el('div','position:sticky;bottom:-16px;background:var(--surface);border-top:.5px solid var(--border);padding:10px 18px 16px;border-radius:0 0 var(--rl) var(--rl);');
+    ft.appendChild(el('div','font-size:12px;padding:8px 10px;border-radius:var(--r);margin-bottom:8px;text-align:center;',null)).id='split-summary';
+    const btns=el('div','display:grid;grid-template-columns:1fr 2fr;gap:8px;');
+    const cancel=el('button','padding:12px;border-radius:var(--r);border:.5px solid var(--border2);background:none;color:var(--t2);font-size:13px;cursor:pointer;','キャンセル');
+    cancel.type='button';cancel.onclick=function(){overlay.remove();};
+    const save=el('button','padding:12px;border-radius:var(--r);border:none;background:var(--green);color:#fff;font-size:14px;font-weight:700;cursor:pointer;','✅ 分割を保存');
+    save.type='button';save.id='split-save';save.onclick=doSave;
+    btns.appendChild(cancel);btns.appendChild(save);ft.appendChild(btns);
+    box.appendChild(ft);
+    updateSummary();
+  }
 
-    overlay.appendChild(box);
+  function doSave(){
+    if(!st.rows.length){showToast('追加する部屋がありません');return;}
+    const seen={};
+    for(let i=0;i<st.rows.length;i++){
+      const r=st.rows[i];
+      if(!r.room){showToast((i+1)+'部屋目の部屋番号を選んでください');return;}
+      if(seen[r.room]){showToast(r.room+'号室が重複しています');return;}
+      seen[r.room]=1;
+      if(!(r.man||r.ca||r.cb||r.baby)){showToast(r.room+'号室の人数を入れてください');return;}
+    }
+    const rem=remaining();
+    if(rem.man<0||rem.ca<0||rem.cb<0||rem.baby<0){showToast('元の人数より多く振り分けています');return;}
+    const empty=!rem.man&&!rem.ca&&!rem.cb&&!rem.baby;
+    if(empty&&!confirm(src.room+'号室は0名になるため削除されます。よろしいですか？'))return;
+    executeGroupSplit(src.room,rem,st.origGrp,st.rows);
+    overlay.remove();
   }
 
   render();
   document.body.appendChild(overlay);
 }
 
-function executeSplitMulti(idx2,g,allRows,origGrp,cb){
-  // 元部屋の更新
-  var origRow=allRows.find(function(r){return r._isOrig;});
-  var addRows=allRows.filter(function(r){return !r._isOrig;});
-  var currentIdx=GUESTS.findIndex(function(x){return x.room===g.room;});
-  if(currentIdx===-1){showToast('元の部屋が見つかりません');return;}
-  // 元部屋を残り人数・グループに更新
-  GUESTS[currentIdx]=Object.assign({},GUESTS[currentIdx],{
-    man:origRow.man,ca:origRow.ca,cb:origRow.cb,baby:origRow.baby,group:origGrp
+// 分割の実行：元の部屋を残り人数に更新し、追加の部屋を登録する
+function executeGroupSplit(srcRoom,rem,origGrp,rows){
+  const i=GUESTS.findIndex(function(x){return x.room===srcRoom;});
+  if(i===-1){showToast('元の部屋が見つかりません');return;}
+  const src=GUESTS[i];
+  const base=Object.assign({},src,{
+    dinnerOrder:{special:'',drink:'',charge:''},
+    breakfastOrder:{special:'',drink:'',charge:'',bfDay:''},
+    personModeAdult:false,personModeChild:false,personMealsAdult:[],personMealsChild:[],
+    stayConfirmed:false,checkedOut:false,
   });
-  if(origRow.man===0&&(origRow.ca||0)===0&&(origRow.cb||0)===0&&(origRow.baby||0)===0){
-    GUESTS.splice(currentIdx,1);
+  rows.forEach(function(r){
+    GUESTS.push(Object.assign({},base,{room:r.room,man:r.man||0,woman:0,ca:r.ca||0,cb:r.cb||0,baby:r.baby||0,group:r.grp||''}));
+  });
+  if(!rem.man&&!rem.ca&&!rem.cb&&!rem.baby){
+    GUESTS.splice(GUESTS.indexOf(src),1);
+  } else {
+    // 個人別の食事指定は人数に合わせて切り詰める
+    const pa=Array.isArray(src.personMealsAdult)?src.personMealsAdult.slice(0,rem.man):[];
+    const pc=Array.isArray(src.personMealsChild)?src.personMealsChild.slice(0,rem.ca+rem.cb):[];
+    Object.assign(src,{man:rem.man,woman:0,ca:rem.ca,cb:rem.cb,baby:rem.baby,group:origGrp||src.group||'',personMealsAdult:pa,personMealsChild:pc});
   }
-  // 追加部屋を登録
-  addRows.forEach(function(r){
-    var newGuest=Object.assign({},g,{
-      room:r.room,man:r.man||0,ca:r.ca||0,cb:r.cb||0,baby:r.baby||0,
-      group:r.group||origGrp,
-      dinnerOrder:{special:'',drink:'',charge:''},
-      breakfastOrder:{special:'',drink:'',charge:'',bfDay:''},
-      stayConfirmed:false,
-    });
-    GUESTS.push(newGuest);
-  });
   GUESTS.sort(function(a,b){return parseInt(a.room)-parseInt(b.room);});
+  // 編集画面は古い人数のままなので閉じる（そのまま保存すると分割が戻ってしまうため）
+  _bulkEditGroup=null;
+  document.getElementById('edit-modal-bg').style.display='none';
   pushData();buildGuests();buildMeals();
-  showToast(addRows.length+'部屋に分割しました　続けて次のグループを操作できます');
-  if(cb){
-    var updatedIdx=GUESTS.findIndex(function(x){return x.room===g.room;});
-    cb(updatedIdx!==-1?GUESTS[updatedIdx]:Object.assign({},g,{man:origRow.man,ca:origRow.ca,cb:origRow.cb,baby:origRow.baby}));
-  } else {
-    var ov=document.getElementById('split-overlay');if(ov)ov.remove();
-    document.getElementById('edit-modal-bg').style.display='none';
-  }
+  showToast(rows.length+'部屋を追加して分割しました');
 }
 
-
-function executeSplit(idx,g,splitRows,rem,cb){
-  if(!splitRows.length){showToast('分割先を1つ以上追加してください');return;}
-  for(let i=0;i<splitRows.length;i++){
-    const r=splitRows[i];
-    if(!r.room){showToast((i+1)+'部屋目の部屋番号を選択してください');return;}
-    if(r.room===g.room){showToast('元の部屋と同じ部屋番号は指定できません');return;}
-  }
-  if(rem.man<0||rem.ca<0||rem.cb<0||rem.baby<0){
-    showToast('人数が元の部屋の人数を超えています');return;
-  }
-  // 元部屋を room で再検索（インデックスが変わっている場合に対応）
-  const currentIdx=GUESTS.findIndex(function(x){return x.room===g.room;});
-  if(currentIdx===-1){showToast('元の部屋が見つかりません');return;}
-  // 元部屋の残り人数を更新
-  GUESTS[currentIdx]=Object.assign({},GUESTS[currentIdx],{man:rem.man,ca:rem.ca,cb:rem.cb,baby:rem.baby||0});
-  // 残り0人なら削除
-  if(rem.man===0&&(rem.ca||0)===0&&(rem.cb||0)===0&&(rem.baby||0)===0){
-    GUESTS.splice(currentIdx,1);
-  }
-  // 分割先を追加
-  splitRows.forEach(function(r){
-    const newGuest=Object.assign({},g,{
-      room:r.room,man:r.man||0,ca:r.ca||0,cb:r.cb||0,baby:r.baby||0,
-      group:r.group||g.group||'',
-      dinnerOrder:{special:'',drink:'',charge:''},
-      breakfastOrder:{special:'',drink:'',charge:'',bfDay:''},
-      stayConfirmed:false,
-    });
-    GUESTS.push(newGuest);
-  });
-  GUESTS.sort(function(a,b){return parseInt(a.room)-parseInt(b.room);});
-  pushData();
-  buildGuests();
-  buildMeals();
-  showToast('G'+(splitRows[0].group||'')+'　'+splitRows.length+'部屋に分割しました　続けて次のグループを選択できます');
-  // コールバック：続けて分割できるよう更新後のゲストを渡す
-  if(cb){
-    const updatedIdx=GUESTS.findIndex(function(x){return x.room===g.room;});
-    const updatedGuest=updatedIdx!==-1
-      ?GUESTS[updatedIdx]
-      :Object.assign({},g,{man:rem.man,ca:rem.ca,cb:rem.cb,baby:rem.baby||0});
-    cb(updatedGuest,updatedIdx);
-  } else {
-    const ov=document.getElementById('split-overlay');if(ov)ov.remove();
-    document.getElementById('edit-modal-bg').style.display='none';
-  }
-}
 function closeEditModal(e){
   if(!e||e.target===document.getElementById('edit-modal-bg')){
     document.getElementById('edit-modal-bg').style.display='none';
@@ -2204,7 +1935,7 @@ function saveGuest(){
   // 一括編集モード：グループ全員に全項目を反映
   if(_bulkEditGroup){
     GUESTS.forEach(function(other){
-      if(other.group!==_bulkEditGroup)return;
+      if(!inGrpFamily(other,_bulkEditGroup))return;
       other.dinner=g.dinner;
       other.dinnerVenue=g.dinnerVenue;
       other.dinnerType=g.dinnerType;
@@ -2235,14 +1966,14 @@ function deleteGuest(){
   // 一括編集中はグループ全員削除
   if(_bulkEditGroup){
     const grp=_bulkEditGroup;
-    const members=GUESTS.filter(function(g){return g.group===grp;});
-    if(!confirm('「'+grp+'グループ」'+members.length+'部屋を全て削除しますか？'))return;
-    GUESTS=GUESTS.filter(function(g){return g.group!==grp;});
+    const members=GUESTS.filter(function(g){return inGrpFamily(g,grp);});
+    if(!confirm('「'+grpLabel(grp)+'グループ」'+members.length+'部屋を全て削除しますか？'))return;
+    GUESTS=GUESTS.filter(function(g){return !inGrpFamily(g,grp);});
     _bulkEditGroup=null;
     pushData();
     document.getElementById('edit-modal-bg').style.display='none';
     buildGuests();buildMeals();
-    showToast(grp+'グループを削除しました');
+    showToast(grpLabel(grp)+'グループを削除しました');
     return;
   }
   if(!confirm('削除しますか？'))return;
@@ -2629,7 +2360,7 @@ function buildMeals(){
       // 上段：部屋番号＋グループ ／ 時間
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;">'
         +'<div style="flex:1;min-width:0;">'
-          +'<div class="mcard-room" style="font-size:13px;">'+escHtml(gu.room)+'号室'+dayBadge+(gu.group?'<span style="font-size:9px;color:#7c3aed;background:#f5f0ff;padding:1px 5px;border-radius:10px;font-weight:600;margin-left:3px;">'+gu.group+'</span>':'')+'</div>'
+          +'<div class="mcard-room" style="font-size:13px;">'+escHtml(gu.room)+'号室'+dayBadge+(gu.group?(function(){const c=getGroupColors(gu.group);return '<span style="font-size:9px;color:'+c.text+';background:'+c.bg+';padding:1px 5px;border-radius:10px;font-weight:600;margin-left:3px;">'+grpLabel(gu.group)+'</span>';})():'')+'</div>'
           +'<div style="font-size:10px;color:var(--t3);">'+escHtml(paxStr(gu))+'</div>'
         +'</div>'
         +'<div style="text-align:right;flex-shrink:0;">'
@@ -5149,10 +4880,10 @@ function autoAssignVenues(){
 function onRoomSelect(room){
   // 部屋選択時の処理（106特別処理廃止）
 }
-function setGroup(grp){
-  // 現在選択中のグループと同じならトグル解除
+function setGroup(grp,force){
+  // ボタン操作時：選択中のグループと同じならトグル解除（force=true は値をそのまま設定）
   const current=document.getElementById('em-group').value;
-  const newGrp=(current===grp)?'':grp;
+  const newGrp=force?(grp||''):((current===grp)?'':grp);
   document.getElementById('em-group').value=newGrp;
   ['A','B','C','D','E'].forEach(function(g){
     const btn=document.getElementById('em-grp-'+g);
@@ -5163,6 +4894,12 @@ function setGroup(grp){
     btn.style.borderColor=active?'var(--green)':'var(--border2)';
     btn.style.borderWidth=active?'1.5px':'0.5px';
   });
+  // A〜E以外（ツアー・サブグループ・F以降）は現在のグループ名を表示
+  const cur=document.getElementById('em-group-cur');
+  if(cur){
+    const other=newGrp&&['A','B','C','D','E'].indexOf(newGrp)===-1;
+    cur.innerHTML=other?'現在：<b>'+grpLabel(newGrp)+'</b>（ボタンを押すと変更）':'';
+  }
 }
 function syncBreakfastVenue(){
   const dv=document.getElementById('em-dinner-venue');
