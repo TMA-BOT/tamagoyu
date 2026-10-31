@@ -1793,6 +1793,7 @@ function openSplitModal(){
     rows:[{orig:true,room:src.room,grp:'',man:total.man,ca:total.ca,cb:total.cb,baby:total.baby}],
     planRooms:Math.max(2,Math.min(10,Math.ceil(total.man/2))),
     planMin:Math.min(2,total.man)||1,
+    rangeFrom:'',rangeTo:'',
   };
   function availableNames(mode){
     const used=usedGroupNames();
@@ -1918,6 +1919,41 @@ function openSplitModal(){
     assignGroupsInOrder();
     render();
   }
+  // 「301〜307」のように範囲で部屋番号をまとめて入れる
+  // 部屋番号が空いている枠に上から順に入れ、足りなければ枠を足す。使用中の部屋は飛ばす
+  function fillRange(){
+    const a=ALL_ROOMS.indexOf(st.rangeFrom),b=ALL_ROOMS.indexOf(st.rangeTo);
+    if(a===-1||b===-1){showToast('最初と最後の部屋を選んでください');return;}
+    const range=ALL_ROOMS.slice(Math.min(a,b),Math.max(a,b)+1);
+    const usedByGuest=GUESTS.map(function(x){return x.room;});
+    const usedHere=st.rows.map(function(r){return r.room;});
+    const skipped=[],picked=[];
+    range.forEach(function(rm){
+      if(usedHere.indexOf(rm)!==-1)return; // すでにこの部屋割りに入っている
+      if(usedByGuest.indexOf(rm)!==-1){skipped.push(rm);return;}
+      picked.push(rm);
+    });
+    if(!picked.length){showToast('その範囲に空いている部屋がありません');return;}
+    let added=0;
+    picked.forEach(function(rm){
+      const empty=st.rows.find(function(r){return !r.orig&&!r.room;});
+      if(empty){empty.room=rm;}
+      else{
+        // 増やした部屋には最低人数ぶんの大人を入れる（未振り分け→元の部屋の余りの順に回す）
+        const want=st.planMin||0;
+        let give=Math.min(want,Math.max(0,total.man-assigned().man));
+        const orig=st.rows[0];
+        const fromOrig=Math.min(want-give,Math.max(0,orig.man-want));
+        orig.man-=fromOrig;give+=fromOrig;
+        st.rows.push({room:rm,grp:'',man:give,ca:0,cb:0,baby:0});
+        added++;
+      }
+    });
+    if(added)assignGroupsInOrder();
+    st.rangeFrom='';st.rangeTo='';
+    render();
+    showToast(picked.length+'部屋を入れました'+(skipped.length?'（使用中のため飛ばした部屋：'+skipped.join('・')+'）':''));
+  }
   // 残った大人を部屋の上から1名ずつ足していく
   function fillRest(){
     let d=total.man-assigned().man;
@@ -1993,6 +2029,29 @@ function openSplitModal(){
 
     // ③ 部屋ごとの人数
     body.appendChild(el('div',LBL,'③ 部屋ごとの人数を調整'+(total.ca||total.cb||total.baby?'<span style="font-weight:400;">（子どもは最初は元の部屋に入っています）</span>':'')));
+    const rg=el('div','display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin-bottom:8px;border:1.5px dashed var(--blue);border-radius:var(--r);background:#fff;');
+    rg.appendChild(el('span','font-size:12px;font-weight:700;color:var(--blue);','部屋番号をまとめて入れる'));
+    function roomSel(val,on){
+      const sel=document.createElement('select');
+      sel.style.cssText='padding:6px 4px;border:.5px solid var(--border2);border-radius:6px;font-size:14px;background:#fff;';
+      const used=GUESTS.map(function(x){return x.room;});
+      sel.innerHTML='<option value="">選択…</option>'+ALL_ROOMS.map(function(rm){
+        return '<option value="'+rm+'"'+(rm===val?' selected':'')+'>'+rm+(used.indexOf(rm)!==-1?'（使用中）':'')+'</option>';
+      }).join('');
+      sel.onchange=function(){on(this.value);};
+      return sel;
+    }
+    rg.appendChild(roomSel(st.rangeFrom,function(v){st.rangeFrom=v;
+      // 最後の部屋が未選択なら同じ階の最後の部屋を仮に入れる
+      if(!st.rangeTo&&v){const fl=v.charAt(0);const same=ALL_ROOMS.filter(function(r){return r.charAt(0)===fl;});st.rangeTo=same[same.length-1];render();}
+    }));
+    rg.appendChild(el('span','font-size:13px;color:var(--t2);','〜'));
+    rg.appendChild(roomSel(st.rangeTo,function(v){st.rangeTo=v;}));
+    const rb=el('button','padding:7px 12px;border-radius:var(--r);border:none;background:var(--blue);color:#fff;font-size:12px;font-weight:700;cursor:pointer;','入れる');
+    rb.type='button';rb.onclick=fillRange;
+    rg.appendChild(rb);
+    rg.appendChild(el('div','width:100%;font-size:10px;color:var(--t3);','部屋番号が空いている枠に上から順に入ります。枠が足りなければ自動で増えます（201〜202、301〜307 のように何回でも）'));
+    body.appendChild(rg);
     const list=el('div','display:flex;flex-direction:column;gap:6px;');
     st.rows.forEach(function(row,ri){
       const c=getGroupColors(row.grp);
