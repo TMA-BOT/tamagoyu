@@ -42,7 +42,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>玉子湯 スタッフ</title>
 <style>
-:root{--bg:#faf9f7;--surface:#fff;--surface2:#f3f1ee;--border:rgba(0,0,0,.09);--border2:rgba(0,0,0,.16);--text:#1a1a18;--t2:#6b6860;--t3:#9e9c97;--green:#2d5a3d;--green-l:#e8f0eb;--amber:#b87333;--amber-l:#fdf3e7;--red:#943030;--red-l:#fdf0f0;--blue:#2c4f7a;--blue-l:#eef3fa;--r:10px;--rl:14px;}
+:root{--bg:#faf9f7;--surface:#fff;--surface2:#f3f1ee;--bg2:#f3f1ee;--border:rgba(0,0,0,.09);--border2:rgba(0,0,0,.16);--text:#1a1a18;--t2:#6b6860;--t3:#9e9c97;--green:#2d5a3d;--green-l:#e8f0eb;--amber:#b87333;--amber-l:#fdf3e7;--red:#943030;--red-l:#fdf0f0;--blue:#2c4f7a;--blue-l:#eef3fa;--r:10px;--rl:14px;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);}
 #app{display:flex;height:100%;flex-direction:column;}
@@ -9415,14 +9415,27 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
   </div>
 </div>
 
+<style>
+@media (max-width:640px){
+  #shift-modal .shift-hd{flex-wrap:wrap;padding:10px 12px;}
+  #shift-modal .shift-hd-title{font-size:15px;flex:1;}
+  #shift-modal .shift-hd-btns{order:3;width:100%;gap:6px;overflow-x:auto;}
+  #shift-modal .shift-hd-btns button{white-space:nowrap;padding:5px 10px!important;font-size:11px!important;}
+  #shift-modal .shift-hd-btns button:last-child{position:absolute;top:8px;right:10px;}
+  #shift-modal .shift-member-btn{padding:5px 10px!important;font-size:11px!important;}
+  #shift-month-label{min-width:0!important;font-size:16px!important;}
+  #shift-counter{display:grid!important;grid-template-columns:1fr 1fr;gap:4px!important;}
+  #shift-counter>div{padding:4px 8px!important;font-size:11px!important;border-radius:8px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+}
+</style>
 <!-- シフト管理モーダル -->
 <div id="shift-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;overflow-y:auto;-webkit-overflow-scrolling:touch;">
   <div style="min-height:100%;display:flex;flex-direction:column;align-items:center;padding:8px 8px 40px;box-sizing:border-box;">
   <div style="width:100%;max-width:2000px;background:var(--surface);border-radius:var(--rl);overflow:clip;box-shadow:0 8px 40px rgba(0,0,0,.3);">
       <!-- ヘッダー -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:.5px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;">
-        <div style="font-size:17px;font-weight:700;">📅 シフト管理（フロント）</div>
-        <div style="display:flex;gap:8px;align-items:center;">
+      <div class="shift-hd" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 20px;border-bottom:.5px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;">
+        <div class="shift-hd-title" style="font-size:17px;font-weight:700;white-space:nowrap;">📅 シフト管理（フロント）</div>
+        <div class="shift-hd-btns" style="display:flex;gap:8px;align-items:center;">
           <button onclick="openShiftCsvImport()" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">📂 予約CSV取込</button>
           <button onclick="openShiftNewTab()" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">↗ 別タブで開く</button>
           <button onclick="printShift()" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">🖨 印刷</button>
@@ -9435,20 +9448,30 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
           <button onclick="shiftChangeMonth(-1)" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:14px;cursor:pointer;color:var(--t2);">◀</button>
           <div id="shift-month-label" style="font-size:18px;font-weight:700;min-width:120px;text-align:center;"></div>
           <button onclick="shiftChangeMonth(1)" style="padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:14px;cursor:pointer;color:var(--t2);">▶</button>
-          <button onclick="openShiftMemberManager()" style="margin-left:auto;padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:12px;cursor:pointer;color:var(--t2);">👥 メンバー管理</button>
+          <button onclick="openShiftMemberManager()" class="shift-member-btn" style="margin-left:auto;white-space:nowrap;padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:12px;cursor:pointer;color:var(--t2);">👥 メンバー管理</button>
         </div>
         <!-- 公休カウンター -->
         <div id="shift-counter" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
         <div id="shift-warnings" style="display:none;flex-direction:column;gap:6px;margin-bottom:16px;"></div>
         <!-- 勤務コード凡例 -->
-        <div style="margin-bottom:10px;padding:8px 12px;background:var(--bg2);border-radius:10px;border:.5px solid var(--border);">
-          <div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:5px;">勤務コード</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:10px;" id="shift-code-legend"></div>
-        </div>
+        <details id="shift-legend-box" open style="margin-bottom:10px;padding:8px 12px;background:var(--bg2);border-radius:10px;border:.5px solid var(--border);">
+          <summary style="font-size:11px;font-weight:600;color:var(--t3);cursor:pointer;">勤務コード（時間）</summary>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:10px;margin-top:5px;" id="shift-code-legend"></div>
+        </details>
         <!-- シフト表 -->
-        <div style="overflow-x:auto;">
+        <div id="shift-table-scroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
           <div id="shift-table-wrap"></div>
         </div>
+      </div>
+      <!-- 入力バー（連続入力） -->
+      <div id="shift-stamp-bar" style="position:sticky;bottom:0;z-index:10;background:var(--surface);border-top:.5px solid var(--border);padding:8px 12px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -4px 12px rgba(0,0,0,.06);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-size:11px;font-weight:700;color:var(--t2);white-space:nowrap;">入力方法</span>
+          <button type="button" id="shift-mode-single" onclick="setShiftStamp(null)" style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;">1マスずつ選ぶ</button>
+          <button type="button" id="shift-mode-stamp" onclick="setShiftStamp(_shiftLastStamp||'休')" style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;">連続入力</button>
+          <span id="shift-stamp-hint" style="font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        </div>
+        <div id="shift-stamp-codes" style="display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;"></div>
       </div>
     </div>
   </div>
@@ -9573,6 +9596,8 @@ function openShiftManager(){
   // flexにすると中身が画面の高さで切れてスクロールできなくなるため block で開く
   el.style.display='block';
   el.scrollTop=0;
+  var lg=document.getElementById('shift-legend-box');
+  if(lg)lg.open=window.innerWidth>640;
   document.body.style.overflow='hidden';
   if(!_shiftLoaded){_loadShiftData();}else{_renderShift();}
 }
@@ -10079,8 +10104,8 @@ function _renderShift(){
   });
 
   // 日別出勤人数行（入込推奨と比較して警告）
-  tbody+='<tr style="background:var(--bg2);">';
-  tbody+='<td style="position:sticky;left:0;background:var(--bg2);z-index:1;padding:5px 8px;font-size:11px;font-weight:700;color:var(--t2);border-right:.5px solid var(--border);">出勤人数</td>';
+  tbody+='<tr style="background:var(--surface2);">';
+  tbody+='<td style="position:sticky;left:0;background:var(--surface2);z-index:1;padding:5px 8px;font-size:11px;font-weight:700;color:var(--t2);border-right:.5px solid var(--border);">出勤人数</td>';
   for(var d=1;d<=daysInMonth;d++){
     var count=0;
     SHIFT_MEMBERS.forEach(function(m){
@@ -10098,11 +10123,15 @@ function _renderShift(){
   }
   tbody+='<td></td></tr>';
 
+  var _scr=document.getElementById('shift-table-scroll');
+  var _keepLeft=_scr?_scr.scrollLeft:0;
   document.getElementById('shift-table-wrap').innerHTML=
-    '<table style="border-collapse:collapse;border:.5px solid var(--border);border-radius:8px;overflow:hidden;min-width:100%;">'
+    '<table style="border-collapse:separate;border-spacing:0;border:.5px solid var(--border);min-width:100%;">'
     +'<thead style="background:var(--bg2);">'+thead+'</thead>'
     +'<tbody>'+tbody+'</tbody>'
     +'</table>';
+  if(_scr)_scr.scrollLeft=_keepLeft;
+  _renderShiftStampBar();
 
   // 凡例
   var legendHtml='';
@@ -10123,11 +10152,45 @@ function promptShiftOcupancy(day){
   setShiftOcupancy(day,val);
 }
 
+// 連続入力：コードを選んでからマスをタップすると、そのコードがすぐ入る
+var _shiftStamp=null;      // null=1マスずつ選ぶ ／ ''=消す ／ コード
+var _shiftLastStamp='休';
+function setShiftStamp(code){
+  _shiftStamp=code;
+  if(code)_shiftLastStamp=code;
+  _renderShiftStampBar();
+}
+function _renderShiftStampBar(){
+  var box=document.getElementById('shift-stamp-codes');
+  if(!box)return;
+  var on=_shiftStamp!==null;
+  var single=document.getElementById('shift-mode-single'),stamp=document.getElementById('shift-mode-stamp');
+  var act='border:1.5px solid var(--green);background:var(--green);color:#fff;',off='border:.5px solid var(--border2);background:none;color:var(--t2);';
+  var base='padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;';
+  if(single)single.style.cssText=base+(on?off:act);
+  if(stamp)stamp.style.cssText=base+(on?act:off);
+  var hint=document.getElementById('shift-stamp-hint');
+  if(hint)hint.textContent=on?(_shiftStamp===''?'タップしたマスを消します':'「'+_shiftStamp+'」を選択中：マスをタップすると入ります'):'マスをタップしてコードを選びます';
+  box.style.display=on?'flex':'none';
+  if(!on){box.innerHTML='';return;}
+  var html='';
+  SHIFT_CODE_KEYS.forEach(function(k){
+    var sel=_shiftStamp===k;
+    if(k===''){
+      html+='<button type="button" onclick="setShiftStamp(\'\')" style="flex-shrink:0;min-width:48px;height:40px;padding:0 10px;border-radius:8px;border:'+(sel?'2.5px solid var(--text)':'.5px solid var(--border2)')+';background:var(--surface2);font-size:12px;font-weight:700;cursor:pointer;color:var(--t2);">消す</button>';
+    }else{
+      var c=SHIFT_CODES[k];
+      html+='<button type="button" onclick="setShiftStamp(\''+k+'\')" title="'+c.time+'" style="flex-shrink:0;min-width:40px;height:40px;border-radius:8px;border:'+(sel?'2.5px solid var(--text)':'none')+';background:'+c.color+';color:'+c.text+';font-weight:700;font-size:15px;cursor:pointer;'+(sel?'transform:scale(1.08);':'')+'">'+k+'</button>';
+    }
+  });
+  box.innerHTML=html;
+}
 // セル入力ポップアップ
 var _shiftCellTarget={};
 function openShiftCellPopup(memberId,day,e){
   e.stopPropagation();
   _shiftCellTarget={memberId:memberId,day:day};
+  if(_shiftStamp!==null){setShiftCell(_shiftStamp);return;}
   var html='<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:220px;">';
   SHIFT_CODE_KEYS.forEach(function(k){
     var c=SHIFT_CODES[k];

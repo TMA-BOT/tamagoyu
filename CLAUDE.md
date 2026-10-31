@@ -112,6 +112,14 @@ const fs = lu.frontStatus || (lu.roomNo ? 'room' : (lu.frontPaid!==false ? 'paid
 - モーダル内：シフト表の**上**（`shift-code-legend` div）
 - 別タブ：公休カウンター → 凡例 → シフト表 の順（`_buildShiftStandalonePage()` 内）
 
+### スマホ対応・入力方法
+- 画面下の入力バー（`#shift-stamp-bar`）で「1マスずつ選ぶ」／「連続入力」を切り替え
+  - 連続入力：コードを選んでからマスをタップすると即入力（`_shiftStamp`、`setShiftStamp()`）。「消す」も選べる
+- `_renderShift()` は再描画しても表の横スクロール位置（`#shift-table-scroll`）を保つ
+- 氏名の列は `position:sticky` で左に固定。表に `overflow:hidden` を付けると固定が効かなくなるので付けない
+- 640px以下：ヘッダーのボタンを1行に、公休カウンターを2列に、勤務コードの凡例はたたんだ状態で開く
+- 開くときは `display:block`（flexにすると中身が画面の高さで切れてスクロールできない）
+
 ### 関連コード位置（目安）
 - `_renderShift()` — シフト表のメインレンダリング
 - `_renderMemberList()` — メンバー管理UI（インライン編集・並び替え対応）
