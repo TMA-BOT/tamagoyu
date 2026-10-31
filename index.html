@@ -1662,6 +1662,7 @@ function _showTestBanner(){
   bar.id='test-mode-banner';
   bar.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px;background:repeating-linear-gradient(45deg,#fff3cd 0 12px,#ffe8a1 12px 24px);border-bottom:2px solid #d97706;color:#7c2d12;font-size:12px;font-weight:700;flex-shrink:0;';
   bar.innerHTML='<span>🧪 テストモード中（架空のお客さん・変更は保存されません）</span><span style="flex:1;"></span>'
+    +'<button type="button" onclick="resetTestGuests()" style="padding:4px 10px;border-radius:20px;border:1px solid #d97706;background:#fff;color:#b45309;font-size:11px;font-weight:700;cursor:pointer;">↩ 最初に戻す</button>'
     +'<button type="button" onclick="refillTestGuests()" style="padding:4px 10px;border-radius:20px;border:1px solid #d97706;background:#fff;color:#b45309;font-size:11px;font-weight:700;cursor:pointer;">🎲 お客さんを入れ直す</button>'
     +'<button type="button" onclick="exitTestMode()" style="padding:4px 10px;border-radius:20px;border:none;background:#b45309;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">テスト終了</button>';
   const topbar=document.querySelector('#app .topbar');
@@ -1674,6 +1675,24 @@ function refillTestGuests(){
   if(!confirm('お客さんをランダムに入れ直しますか？（今のテスト内容は消えます）'))return;
   _fillTestGuests();
   showToast('🎲 お客さんを入れ直しました');
+}
+// 同じお客さんのまま、テスト開始（入れ直し）直後の状態に戻す
+let _testSnapshot=null;
+function resetTestGuests(){
+  if(!_testMode||!_testSnapshot)return;
+  if(!confirm('同じお客さんのまま、最初の状態に戻しますか？（分割・編集・チェックアウトなどの操作は消えます）'))return;
+  _applyTestData(JSON.parse(_testSnapshot));
+  showToast('↩ 最初の状態に戻しました');
+}
+function _applyTestData(d){
+  GUESTS=d.guests;LUNCHES=d.lunches;BETCHU=d.betchu;CLEANING_DATA={};CHECKOUT_ROOMS=[];
+  TABLE_PROGRESS={hana:{},band:{},mutsu:{},f5:{}};
+  Object.keys(manualAssign).forEach(function(v){manualAssign[v]={};});
+  saveCurrentData(); // テストモード中はメモリ上だけに保存される
+  buildGuests();
+  if(mealTab==='lunch')buildLunchList();else if(mealTab==='betchu')buildBetchuList();else buildMeals();
+  buildCleaning();
+  if(typeof closeRyoinMap==='function'){const ov=document.getElementById('ryoin-map-overlay');if(ov&&ov.style.display!=='none')renderRyoinMap();}
 }
 // 架空のお客さんをランダムに作る
 function _fillTestGuests(){
@@ -1736,13 +1755,8 @@ function _fillTestGuests(){
       .map(function(m){return {name:m.name,qty:1+rnd(2)};});
     betchu.push({room:g.room,items:items,allergy:g.badge==='ballergy'?g.note.replace('アレルギー',''):'',note:'',createdAt:'テスト'});
   });
-  GUESTS=guests;LUNCHES=[];BETCHU=betchu;CLEANING_DATA={};CHECKOUT_ROOMS=[];
-  TABLE_PROGRESS={hana:{},band:{},mutsu:{},f5:{}};
-  Object.keys(manualAssign).forEach(function(v){manualAssign[v]={};});
-  saveCurrentData(); // テストモード中はメモリ上だけに保存される
-  buildGuests();
-  if(mealTab==='lunch')buildLunchList();else if(mealTab==='betchu')buildBetchuList();else buildMeals();
-  buildCleaning();
+  _testSnapshot=JSON.stringify({guests:guests,lunches:[],betchu:betchu});
+  _applyTestData(JSON.parse(_testSnapshot));
 }
 
 // ===== グループ分割 =====

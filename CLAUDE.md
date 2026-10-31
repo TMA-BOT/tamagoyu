@@ -146,6 +146,7 @@ const fs = lu.frontStatus || (lu.roomNo ? 'room' : (lu.frontPaid!==false ? 'paid
   - `window._dbSet` を何もしない関数に差し替え（Firebaseへの書き込みをすべて停止）
   - `dates/` のデータは `_dbGet` / `_dbOnValue` で読まない（それ以外のメニュー等は読み込みのみ可）
   - `localStorage` の書き込みはメモリ上だけにし、本番の日付データ（`tamagoyu_YYYY-…`）は見せない
+- 帯のボタン：「↩ 最初に戻す」＝同じお客さんで開始直後に戻す（`_testSnapshot`）／「🎲 入れ直す」＝別のお客さんを生成
 - 終了はページの読み込み直し（`location.reload()`）。ページを再読み込みすればいつでも本番に戻る
 - Firebaseへ書く処理を新しく作るときも、必ず `window._dbSet` を経由すること（直接 `set` を呼ぶとテストモードで止まらない）
 
