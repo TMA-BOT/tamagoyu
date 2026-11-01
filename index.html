@@ -8516,9 +8516,11 @@ function printRyoinMap(guest){
     +'#map-inner .rmap-entrance{background:#fff!important;border:1.5px solid #000!important;}'
     // お客様用：部屋番号だけを大きく
     +'#map-inner .guest-table{display:flex!important;flex-direction:column;align-items:center;justify-content:center!important;gap:2px;background:#fff!important;border:2.5px solid #000!important;border-radius:10px;padding:4px!important;}'
-    +'#map-inner .guest-table .gr{font-size:30px;font-weight:800;letter-spacing:.02em;line-height:1.1;white-space:nowrap;}'
-    +'#map-inner .guest-table .gr span{font-size:13px;font-weight:700;margin-left:2px;}'
-    +'#map-inner .guest-table.multi .gr{font-size:20px;}'
+    +'#map-inner .guest-table .gr{font-size:50px;font-weight:900;letter-spacing:-.01em;line-height:1;white-space:nowrap;display:flex;flex-direction:column;align-items:center;}'
+    +'#map-inner .guest-table .gr span{font-size:14px;font-weight:700;margin:2px 0 0;letter-spacing:.2em;}'
+    +'#map-inner .guest-table.multi{gap:8px;}'
+    +'#map-inner .guest-table.multi .gr{font-size:36px;flex-direction:row;align-items:baseline;}'
+    +'#map-inner .guest-table.multi .gr span{font-size:12px;margin:0 0 0 2px;letter-spacing:0;}'
     +'#map-inner .guest-empty{background:#fff!important;border:1px dashed #bbb!important;}'
     +(guest?'h2{font-size:22px;height:10mm;line-height:10mm;}':'')
     +'@page{size:A3 landscape;margin:0;}'
@@ -8692,7 +8694,7 @@ function renderRyoinMap(){
     // メインテーブル以外はスキップ
     if(isInGroup&&t.id!==mainId){return;}
     // グループの場合は全テーブルを囲む縦長サイズを計算
-    let tw=t.w,th=t.h;
+    let tw=t.w,th=t.h,topY=y;
     if(isInGroup){
       let minY=y,maxY=y+t.h;
       grpMembers.forEach(function(mid){
@@ -8706,7 +8708,9 @@ function renderRyoinMap(){
         tw=Math.max(tw,mt.w);
       });
       th=maxY-minY;
+      topY=minY; // 一番上のテーブルから描く（代表のテーブルの位置から描くと会場図の下にはみ出す）
     }
+    const grpOffY=y-topY; // ドラッグ後に代表のテーブルの位置へ戻すためのずれ
     // 結合選択モード中のハイライト
     const isJoinSelectTarget=joinSelectMode&&t.id!==currentTableModalId&&!(gOf[t.id]&&gOf[t.id]===gOf[currentTableModalId]);
     const elBg=isJoinSelectTarget?'var(--amber-l)':bg;
@@ -8716,7 +8720,7 @@ function renderRyoinMap(){
     el.dataset.tid=t.id;
     if(filled){el.dataset.filled='1';el.dataset.room=a.rooms?a.rooms.join(','):a.room;}
     if(isAnniv)el.dataset.mark='記念日';else if(isVip)el.dataset.mark='VIP';
-    el.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+tw+'px;height:'+th+'px;'
+    el.style.cssText='position:absolute;left:'+x+'px;top:'+topY+'px;width:'+tw+'px;height:'+th+'px;'
       +'background:'+elBg+';border:1.5px solid '+elBorder+';border-radius:8px;cursor:grab;user-select:none;'
       +'display:flex;flex-direction:column;justify-content:'+(filled&&(a.note||BETCHU.some(function(b){return (a.rooms||[a.room]).indexOf(b.room)!==-1;}))?'flex-start':'center')+';padding:6px 8px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden;';
     // タップの処理（クリックはドラッグ処理の onEnd から呼ぶ。タッチでも動くように）
@@ -8767,8 +8771,8 @@ function renderRyoinMap(){
         el.style.boxShadow='0 4px 16px rgba(0,0,0,.18)';
       }
       const sc=curScale();
-      const nx=Math.max(0,Math.min(cfg.w-t.w,origX+(ex-startX)/sc));
-      const ny=Math.max(0,Math.min(cfg.h-t.h,origY+(ey-startY)/sc));
+      const nx=Math.max(0,Math.min(cfg.w-tw,origX+(ex-startX)/sc));
+      const ny=Math.max(0,Math.min(cfg.h-th,origY+(ey-startY)/sc));
       el.style.left=Math.round(nx)+'px';el.style.top=Math.round(ny)+'px';
     }
     function onEnd(){
@@ -8778,7 +8782,7 @@ function renderRyoinMap(){
       dragging=false;
       el.style.zIndex='';el.style.cursor='grab';
       el.style.boxShadow='0 1px 4px rgba(0,0,0,.08)';
-      tablePositions[currentVenue][t.id]={x:parseInt(el.style.left),y:parseInt(el.style.top)};
+      tablePositions[currentVenue][t.id]={x:parseInt(el.style.left),y:parseInt(el.style.top)+grpOffY};
     }
     function onBtn(e){return e.target&&e.target.closest&&e.target.closest('button');}
     // マウス
