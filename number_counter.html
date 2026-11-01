@@ -73,18 +73,26 @@ body{font-family:'Hiragino Sans','Meiryo',sans-serif;background:var(--bg);color:
   #stats-day-area,#stats-month-area,#stats-tab-day,#stats-tab-month{display:none!important;}
   #view-stats{display:block!important;}
   body{background:#fff!important;font-size:9px;}
-  /* 日付バッジと集計を縦に並べる */
-  #print-header{margin-bottom:4px!important;page-break-inside:avoid;}
-  .total-badge{font-size:10px!important;}
-  /* 2カラム横並び */
-  #print-cols{display:flex!important;gap:6px;align-items:flex-start;page-break-inside:avoid;}
-  #print-cols .card{flex:1;box-shadow:none!important;border:.5px solid #e2e8f0!important;page-break-inside:avoid;margin-bottom:0!important;padding:6px!important;}
-  /* バーを極力小さく */
-  .rank-bar-wrap{height:7px!important;}
-  .rank-row,.rank-item{padding:1px 2px!important;font-size:8px!important;margin-bottom:1px!important;}
-  .rank-name{font-size:8px!important;}
-  .rank-num{font-size:8px!important;}
-  .sec{font-size:9px!important;margin-bottom:3px!important;}
+  /* 見出し */
+  #print-header{margin-bottom:3mm!important;}
+  .total-badge{font-size:11px!important;padding:3px 10px!important;}
+  /* 地域名ランキング（4列に折り返す）と県別ランキングを横に並べて1枚に収める。
+     ページの途中で分けない指定は、入りきらないと丸ごと次のページへ送られて空白ページができるので付けない */
+  #print-cols{display:grid!important;grid-template-columns:4fr 1fr;gap:3mm;align-items:start;}
+  #print-cols .card{box-shadow:none!important;border:.5px solid #cbd5e0!important;margin:0!important;padding:2mm!important;break-inside:auto;}
+  #rank-list,#pref-rank-list{display:block;}
+  #rank-list{column-count:4;column-gap:3mm;}
+  .rank-item{break-inside:avoid;animation:none!important;opacity:1!important;transform:none!important;
+    padding:0 1px!important;margin:0!important;gap:3px!important;min-height:0!important;font-size:8px!important;line-height:1.25;border-bottom:.3px solid #edf2f7!important;}
+  .rank-item>div:first-child{font-size:8px!important;min-width:10px!important;}
+  .rank-item>div:nth-child(2){font-size:7px!important;min-width:12px!important;}
+  .rank-bar-wrap{height:4px!important;flex:1.2!important;}
+  .rank-bar{height:4px!important;}
+  .rank-name-wrap{flex:2!important;min-width:0;overflow:hidden;white-space:nowrap;}
+  .rank-name{font-size:8px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rank-pref{font-size:6.5px!important;white-space:nowrap;}
+  .rank-num{font-size:8px!important;min-width:18px!important;}
+  .sec{font-size:9px!important;margin-bottom:1.5mm!important;}
 }
 </style>
 </head>
