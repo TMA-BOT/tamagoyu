@@ -117,6 +117,10 @@ const fs = lu.frontStatus || (lu.roomNo ? 'room' : (lu.frontPaid!==false ? 'paid
   - 連続入力：コードを選んでからマスをタップすると即入力（`_shiftStamp`、`setShiftStamp()`）。「消す」も選べる
   - まとめて選択：マスをタップで選択（`_shiftSel`、青枠）→ コードを押すと選んだマスに一度に入る（`shiftApplyToSelected()`、保存は1回）
     - 氏名をタップでその人の1か月分、日付をタップでその日の全員分（`shiftSelectRow()` / `shiftSelectCol()`）。PCはShift+クリックで同じ行の範囲選択
+    - なぞって選択：押したマスから今のマスまでの四角い範囲を選ぶ（選択済みから始めたら外す）。`pointerdown/move/up` を document で受け、`elementFromPoint` でマスを探す（タッチは押した要素に固定されるため）
+    - まとめて選択中だけマスに `touch-action:none`（なぞる操作が画面スクロールにならないように）。スクロールは氏名・日付の列や表の外で行う
+    - なぞり終わりのクリックで1マス外れないよう `_shiftSuppressClick` で1回だけ止める（次に押したら解除）
+    - 選択の表示は `.shift-sel` クラス（なぞる間は表を描き直さずクラスだけ付け替える）
     - 月を変えると選択は外れる
 - `_renderShift()` は再描画しても表の横スクロール位置（`#shift-table-scroll`）を保つ
 - 氏名の列は `position:sticky` で左に固定。表に `overflow:hidden` を付けると固定が効かなくなるので付けない

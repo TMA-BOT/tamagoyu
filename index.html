@@ -9619,6 +9619,7 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
 
 <style>
 .rotate-hint{display:none;}
+#shift-table-wrap td.shift-sel{box-shadow:inset 0 0 0 3px #2563eb,inset 0 0 0 40px rgba(37,99,235,.18);}
 @media (max-width:640px) and (orientation:portrait){
   .rotate-hint{display:block;padding:6px 12px;font-size:11px;color:var(--blue);background:var(--blue-l);text-align:center;}
 }
@@ -10321,7 +10322,7 @@ function _renderShift(){
   thead+='<th style="border-bottom:.5px solid var(--border);background:#e0f2fe;"></th></tr>';
 
   var tbody='';
-  SHIFT_MEMBERS.forEach(function(m){
+  SHIFT_MEMBERS.forEach(function(m,mi){
     var kyuCount=0;
     tbody+='<tr>';
     tbody+='<td onclick="shiftSelectRow(\''+m.id+'\')" style="'+(_shiftSelectMode?'cursor:pointer;':'')+'position:sticky;left:0;background:var(--surface);z-index:1;padding:5px 8px;font-size:12px;font-weight:600;white-space:nowrap;border-right:.5px solid var(--border);border-bottom:.5px solid var(--border2);">'
@@ -10336,9 +10337,9 @@ function _renderShift(){
       var cellBg=code&&SHIFT_CODES[code]?SHIFT_CODES[code].color:(isSun||isHolidayCell)?'#fff5f5':isSat?'#f0f7ff':'';
       var cellText=code&&SHIFT_CODES[code]?SHIFT_CODES[code].text:'';
       var isSel=_shiftSel.has(m.id+'|'+d);
-      tbody+='<td onclick="openShiftCellPopup(\''+m.id+'\','+d+',event)" style="min-width:30px;height:34px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;'
-        +(isSel?'box-shadow:inset 0 0 0 3px #2563eb;':'')
-        +(cellBg?'background:'+cellBg+';':(isSel?'background:#dbeafe;':''))
+      tbody+='<td data-mid="'+m.id+'" data-day="'+d+'" data-r="'+mi+'"'+(isSel?' class="shift-sel"':'')+' onclick="openShiftCellPopup(\''+m.id+'\','+d+',event)" style="min-width:30px;height:34px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;'
+        +(_shiftSelectMode?'touch-action:none;user-select:none;-webkit-user-select:none;':'')
+        +(cellBg?'background:'+cellBg+';':'')
         +(cellText?'color:'+cellText+';':'')
         +'border-right:.5px solid var(--border2);border-bottom:.5px solid var(--border2);vertical-align:middle;">'
         +escHtml(code)+'</td>';
@@ -10415,6 +10416,7 @@ function setShiftSelectMode(on){
 }
 function _shiftDays(){return new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();}
 function shiftToggleCell(memberId,day,e){
+  if(_shiftSuppressClick){_shiftSuppressClick=0;return;}
   var key=memberId+'|'+day;
   if(e&&e.shiftKey&&_shiftSelLast&&_shiftSelLast.memberId===memberId){
     var a=Math.min(_shiftSelLast.day,day),b=Math.max(_shiftSelLast.day,day);
@@ -10439,6 +10441,49 @@ function shiftSelectCol(day){
   if(!_shiftSelectMode)return;
   _shiftToggleKeys(SHIFT_MEMBERS.map(function(m){return m.id+'|'+day;}));
 }
+// なぞって選択：押したマスから今のマスまでの四角い範囲を選ぶ（選択済みのマスから始めたら外す）
+var _shiftDrag=null,_shiftSuppressClick=0;
+function _shiftKeyOf(td){return td.dataset.mid+'|'+td.dataset.day;}
+function _shiftPaintSel(){
+  document.querySelectorAll('#shift-table-wrap td[data-day]').forEach(function(td){
+    td.classList.toggle('shift-sel',_shiftSel.has(_shiftKeyOf(td)));
+  });
+  _renderShiftStampBar();
+}
+(function(){
+  document.addEventListener('pointerdown',function(e){
+    _shiftSuppressClick=0; // 新しく押したら、前のなぞり終わりのクリック止めは解除
+    if(!_shiftSelectMode)return;
+    var td=e.target.closest&&e.target.closest('#shift-table-wrap td[data-day]');
+    if(!td)return;
+    _shiftDrag={r0:+td.dataset.r,d0:+td.dataset.day,base:new Set(_shiftSel),remove:_shiftSel.has(_shiftKeyOf(td)),moved:false};
+  });
+  document.addEventListener('pointermove',function(e){
+    if(!_shiftDrag)return;
+    var el=document.elementFromPoint(e.clientX,e.clientY);
+    var td=el&&el.closest&&el.closest('#shift-table-wrap td[data-day]');
+    if(!td)return;
+    var r1=+td.dataset.r,d1=+td.dataset.day,g=_shiftDrag;
+    if(!g.moved&&r1===g.r0&&d1===g.d0)return;
+    g.moved=true;
+    var sel=new Set(g.base);
+    for(var r=Math.min(g.r0,r1);r<=Math.max(g.r0,r1);r++){
+      var m=SHIFT_MEMBERS[r];if(!m)continue;
+      for(var d=Math.min(g.d0,d1);d<=Math.max(g.d0,d1);d++){
+        var k=m.id+'|'+d;
+        if(g.remove)sel.delete(k);else sel.add(k);
+      }
+    }
+    _shiftSel=sel;
+    _shiftPaintSel();
+  });
+  function end(){
+    if(_shiftDrag&&_shiftDrag.moved)_shiftSuppressClick=1; // なぞり終わりのクリックで1マス外れないように（次に押すまで有効）
+    _shiftDrag=null;
+  }
+  document.addEventListener('pointerup',end);
+  document.addEventListener('pointercancel',end);
+})();
 function shiftApplyToSelected(code){
   if(!_shiftSel.size){showToast('先にマスを選んでください');return;}
   var monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
@@ -10473,7 +10518,7 @@ function _renderShiftStampBar(){
   if(stamp)stamp.style.cssText=base+(on?act:off);
   if(selb)selb.style.cssText=base+(sm?act:off);
   var hint=document.getElementById('shift-stamp-hint');
-  if(hint)hint.textContent=sm?(_shiftSel.size?_shiftSel.size+'マス選択中：下のコードを押すとまとめて入ります':'マスをタップして選択（氏名で1か月分、日付でその日の全員）')
+  if(hint)hint.textContent=sm?(_shiftSel.size?_shiftSel.size+'マス選択中：下のコードを押すとまとめて入ります':'マスをタップ、またはなぞって選択（氏名で1か月分、日付でその日の全員）')
     :on?(_shiftStamp===''?'タップしたマスを消します':'「'+_shiftStamp+'」を選択中：マスをタップすると入ります'):'マスをタップしてコードを選びます';
   box.style.display=(on||sm)?'flex':'none';
   if(!on&&!sm){box.innerHTML='';return;}
