@@ -115,6 +115,9 @@ const fs = lu.frontStatus || (lu.roomNo ? 'room' : (lu.frontPaid!==false ? 'paid
 ### スマホ対応・入力方法
 - 画面下の入力バー（`#shift-stamp-bar`）で「1マスずつ選ぶ」／「連続入力」を切り替え
   - 連続入力：コードを選んでからマスをタップすると即入力（`_shiftStamp`、`setShiftStamp()`）。「消す」も選べる
+  - まとめて選択：マスをタップで選択（`_shiftSel`、青枠）→ コードを押すと選んだマスに一度に入る（`shiftApplyToSelected()`、保存は1回）
+    - 氏名をタップでその人の1か月分、日付をタップでその日の全員分（`shiftSelectRow()` / `shiftSelectCol()`）。PCはShift+クリックで同じ行の範囲選択
+    - 月を変えると選択は外れる
 - `_renderShift()` は再描画しても表の横スクロール位置（`#shift-table-scroll`）を保つ
 - 氏名の列は `position:sticky` で左に固定。表に `overflow:hidden` を付けると固定が効かなくなるので付けない
 - スマホ横持ち（`orientation:landscape` かつ高さ500px以下）：表を `table-layout:fixed` で横幅に収め、1〜31日をスクロールなしで表示。縦持ちでは「横向きに」の案内（`.rotate-hint`）を出す

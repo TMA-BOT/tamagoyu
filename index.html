@@ -9713,6 +9713,7 @@ setTimeout(function(){autoCarryOverOnStartup();},800);
           <span style="font-size:11px;font-weight:700;color:var(--t2);white-space:nowrap;">入力方法</span>
           <button type="button" id="shift-mode-single" onclick="setShiftStamp(null)" style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;">1マスずつ選ぶ</button>
           <button type="button" id="shift-mode-stamp" onclick="setShiftStamp(_shiftLastStamp||'休')" style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;">連続入力</button>
+          <button type="button" id="shift-mode-select" onclick="setShiftSelectMode(true)" style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;">まとめて選択</button>
           <span id="shift-stamp-hint" style="font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
         </div>
         <div id="shift-stamp-codes" style="display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;"></div>
@@ -10189,6 +10190,7 @@ function _saveShiftData(){
 }
 
 function shiftChangeMonth(d){
+  _shiftSel.clear();
   SHIFT_MONTH+=d;
   if(SHIFT_MONTH>12){SHIFT_MONTH=1;SHIFT_YEAR++;}
   if(SHIFT_MONTH<1){SHIFT_MONTH=12;SHIFT_YEAR--;}
@@ -10294,7 +10296,7 @@ function _renderShift(){
     var isHoliday=!!holiday;
     var dayColor=(isSun||isHoliday)?'color:var(--red)':isSat?'color:var(--blue)':'';
     var thBg=(isSun||isHoliday)?'background:#fff5f5':isSat?'background:#f0f7ff':'';
-    thead+='<th style="min-width:34px;padding:3px 2px;text-align:center;font-size:11px;border-bottom:.5px solid var(--border);border-right:.5px solid var(--border2);'+thBg+'">'
+    thead+='<th onclick="shiftSelectCol('+d+')" style="'+(_shiftSelectMode?'cursor:pointer;':'')+'min-width:34px;padding:3px 2px;text-align:center;font-size:11px;border-bottom:.5px solid var(--border);border-right:.5px solid var(--border2);'+thBg+'">'
       +'<div style="'+dayColor+';font-weight:700;">'+d+'</div>'
       +'<div style="font-size:9px;'+dayColor+';">'+weekDays[dow]+'</div>'
       +(isHoliday?'<div style="font-size:7px;color:var(--red);line-height:1.1;margin-top:1px;">'+holiday+'</div>':'')
@@ -10322,7 +10324,7 @@ function _renderShift(){
   SHIFT_MEMBERS.forEach(function(m){
     var kyuCount=0;
     tbody+='<tr>';
-    tbody+='<td style="position:sticky;left:0;background:var(--surface);z-index:1;padding:5px 8px;font-size:12px;font-weight:600;white-space:nowrap;border-right:.5px solid var(--border);border-bottom:.5px solid var(--border2);">'
+    tbody+='<td onclick="shiftSelectRow(\''+m.id+'\')" style="'+(_shiftSelectMode?'cursor:pointer;':'')+'position:sticky;left:0;background:var(--surface);z-index:1;padding:5px 8px;font-size:12px;font-weight:600;white-space:nowrap;border-right:.5px solid var(--border);border-bottom:.5px solid var(--border2);">'
       +escHtml(m.name)
       +'</td>';
     for(var d=1;d<=daysInMonth;d++){
@@ -10333,8 +10335,10 @@ function _renderShift(){
       var isHolidayCell=!!_getHoliday(SHIFT_YEAR,SHIFT_MONTH,d);
       var cellBg=code&&SHIFT_CODES[code]?SHIFT_CODES[code].color:(isSun||isHolidayCell)?'#fff5f5':isSat?'#f0f7ff':'';
       var cellText=code&&SHIFT_CODES[code]?SHIFT_CODES[code].text:'';
+      var isSel=_shiftSel.has(m.id+'|'+d);
       tbody+='<td onclick="openShiftCellPopup(\''+m.id+'\','+d+',event)" style="min-width:30px;height:34px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;'
-        +(cellBg?'background:'+cellBg+';':'')
+        +(isSel?'box-shadow:inset 0 0 0 3px #2563eb;':'')
+        +(cellBg?'background:'+cellBg+';':(isSel?'background:#dbeafe;':''))
         +(cellText?'color:'+cellText+';':'')
         +'border-right:.5px solid var(--border2);border-bottom:.5px solid var(--border2);vertical-align:middle;">'
         +escHtml(code)+'</td>';
@@ -10399,7 +10403,60 @@ function promptShiftOcupancy(day){
 // 連続入力：コードを選んでからマスをタップすると、そのコードがすぐ入る
 var _shiftStamp=null;      // null=1マスずつ選ぶ ／ ''=消す ／ コード
 var _shiftLastStamp='休';
+// まとめて選択：マスを選んでから、コードを押すと選んだマスに一度に入る
+var _shiftSelectMode=false;
+var _shiftSel=new Set();   // 'memberId|day'
+var _shiftSelLast=null;    // Shift+クリックの範囲選択用 {memberId,day}
+function setShiftSelectMode(on){
+  _shiftSelectMode=!!on;
+  if(on)_shiftStamp=null;
+  else _shiftSel.clear();
+  _renderShift();
+}
+function _shiftDays(){return new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();}
+function shiftToggleCell(memberId,day,e){
+  var key=memberId+'|'+day;
+  if(e&&e.shiftKey&&_shiftSelLast&&_shiftSelLast.memberId===memberId){
+    var a=Math.min(_shiftSelLast.day,day),b=Math.max(_shiftSelLast.day,day);
+    for(var d=a;d<=b;d++)_shiftSel.add(memberId+'|'+d);
+  } else if(_shiftSel.has(key))_shiftSel.delete(key);
+  else _shiftSel.add(key);
+  _shiftSelLast={memberId:memberId,day:day};
+  _renderShift();
+}
+// 行（その人の1か月）・列（その日の全員）をまとめて選ぶ。全部選ばれていれば外す
+function _shiftToggleKeys(keys){
+  var all=keys.every(function(k){return _shiftSel.has(k);});
+  keys.forEach(function(k){if(all)_shiftSel.delete(k);else _shiftSel.add(k);});
+  _renderShift();
+}
+function shiftSelectRow(memberId){
+  if(!_shiftSelectMode)return;
+  var keys=[];for(var d=1;d<=_shiftDays();d++)keys.push(memberId+'|'+d);
+  _shiftToggleKeys(keys);
+}
+function shiftSelectCol(day){
+  if(!_shiftSelectMode)return;
+  _shiftToggleKeys(SHIFT_MEMBERS.map(function(m){return m.id+'|'+day;}));
+}
+function shiftApplyToSelected(code){
+  if(!_shiftSel.size){showToast('先にマスを選んでください');return;}
+  var monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
+  if(!SHIFT_DATA[monthKey])SHIFT_DATA[monthKey]={};
+  var n=_shiftSel.size;
+  _shiftSel.forEach(function(k){
+    var p=k.split('|'),mid=p[0],day=parseInt(p[1]);
+    if(!SHIFT_DATA[monthKey][mid])SHIFT_DATA[monthKey][mid]={};
+    if(code==='')delete SHIFT_DATA[monthKey][mid][day];
+    else SHIFT_DATA[monthKey][mid][day]=code;
+  });
+  _shiftSel.clear();_shiftSelLast=null;
+  _saveShiftData();
+  _renderShift();
+  showToast(n+'マスに'+(code===''?'「消す」を':'「'+code+'」を')+'入れました');
+}
 function setShiftStamp(code){
+  _shiftSelectMode=false;_shiftSel.clear();
   _shiftStamp=code;
   if(code)_shiftLastStamp=code;
   _renderShiftStampBar();
@@ -10407,26 +10464,34 @@ function setShiftStamp(code){
 function _renderShiftStampBar(){
   var box=document.getElementById('shift-stamp-codes');
   if(!box)return;
-  var on=_shiftStamp!==null;
-  var single=document.getElementById('shift-mode-single'),stamp=document.getElementById('shift-mode-stamp');
+  var sm=_shiftSelectMode;
+  var on=_shiftStamp!==null&&!sm;
+  var single=document.getElementById('shift-mode-single'),stamp=document.getElementById('shift-mode-stamp'),selb=document.getElementById('shift-mode-select');
   var act='border:1.5px solid var(--green);background:var(--green);color:#fff;',off='border:.5px solid var(--border2);background:none;color:var(--t2);';
   var base='padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;';
-  if(single)single.style.cssText=base+(on?off:act);
+  if(single)single.style.cssText=base+(on||sm?off:act);
   if(stamp)stamp.style.cssText=base+(on?act:off);
+  if(selb)selb.style.cssText=base+(sm?act:off);
   var hint=document.getElementById('shift-stamp-hint');
-  if(hint)hint.textContent=on?(_shiftStamp===''?'タップしたマスを消します':'「'+_shiftStamp+'」を選択中：マスをタップすると入ります'):'マスをタップしてコードを選びます';
-  box.style.display=on?'flex':'none';
-  if(!on){box.innerHTML='';return;}
+  if(hint)hint.textContent=sm?(_shiftSel.size?_shiftSel.size+'マス選択中：下のコードを押すとまとめて入ります':'マスをタップして選択（氏名で1か月分、日付でその日の全員）')
+    :on?(_shiftStamp===''?'タップしたマスを消します':'「'+_shiftStamp+'」を選択中：マスをタップすると入ります'):'マスをタップしてコードを選びます';
+  box.style.display=(on||sm)?'flex':'none';
+  if(!on&&!sm){box.innerHTML='';return;}
   var html='';
+  if(sm){
+    html+='<span style="flex-shrink:0;align-self:center;font-size:12px;font-weight:700;color:#2563eb;padding:0 4px;white-space:nowrap;">'+_shiftSel.size+'マス</span>';
+  }
   SHIFT_CODE_KEYS.forEach(function(k){
-    var sel=_shiftStamp===k;
+    var sel=!sm&&_shiftStamp===k;
+    var act2=sm?'shiftApplyToSelected':'setShiftStamp';
     if(k===''){
-      html+='<button type="button" onclick="setShiftStamp(\'\')" style="flex-shrink:0;min-width:48px;height:40px;padding:0 10px;border-radius:8px;border:'+(sel?'2.5px solid var(--text)':'.5px solid var(--border2)')+';background:var(--surface2);font-size:12px;font-weight:700;cursor:pointer;color:var(--t2);">消す</button>';
+      html+='<button type="button" onclick="'+act2+'(\'\')" style="flex-shrink:0;min-width:48px;height:40px;padding:0 10px;border-radius:8px;border:'+(sel?'2.5px solid var(--text)':'.5px solid var(--border2)')+';background:var(--surface2);font-size:12px;font-weight:700;cursor:pointer;color:var(--t2);">消す</button>';
     }else{
       var c=SHIFT_CODES[k];
-      html+='<button type="button" onclick="setShiftStamp(\''+k+'\')" title="'+c.time+'" style="flex-shrink:0;min-width:40px;height:40px;border-radius:8px;border:'+(sel?'2.5px solid var(--text)':'none')+';background:'+c.color+';color:'+c.text+';font-weight:700;font-size:15px;cursor:pointer;'+(sel?'transform:scale(1.08);':'')+'">'+k+'</button>';
+      html+='<button type="button" onclick="'+act2+'(\''+k+'\')" title="'+c.time+'" style="flex-shrink:0;min-width:40px;height:40px;border-radius:8px;border:'+(sel?'2.5px solid var(--text)':'none')+';background:'+c.color+';color:'+c.text+';font-weight:700;font-size:15px;cursor:pointer;'+(sel?'transform:scale(1.08);':'')+'">'+k+'</button>';
     }
   });
+  if(sm&&_shiftSel.size)html+='<button type="button" onclick="_shiftSel.clear();_renderShift();" style="flex-shrink:0;height:40px;padding:0 10px;border-radius:8px;border:.5px solid var(--border2);background:#fff;font-size:11px;color:var(--t2);cursor:pointer;white-space:nowrap;">選択解除</button>';
   box.innerHTML=html;
 }
 // セル入力ポップアップ
@@ -10434,6 +10499,7 @@ var _shiftCellTarget={};
 function openShiftCellPopup(memberId,day,e){
   e.stopPropagation();
   _shiftCellTarget={memberId:memberId,day:day};
+  if(_shiftSelectMode){shiftToggleCell(memberId,day,e);return;}
   if(_shiftStamp!==null){setShiftCell(_shiftStamp);return;}
   var html='<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:220px;">';
   SHIFT_CODE_KEYS.forEach(function(k){
