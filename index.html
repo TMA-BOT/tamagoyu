@@ -783,6 +783,7 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
       <button id="ryoin-btn-add" onclick="addRyoinTable()" style="padding:6px 12px;border-radius:var(--r);border:.5px solid var(--green);background:none;color:var(--green);font-size:12px;font-weight:600;cursor:pointer;">＋ テーブルを追加</button>
       <button id="ryoin-btn-reset" onclick="resetRyoinLayout()" style="padding:6px 12px;border-radius:var(--r);border:.5px solid var(--border2);background:none;color:var(--t2);font-size:12px;cursor:pointer;">初期配置に戻す</button>
       <button id="ryoin-btn-print" onclick="printRyoinMap()" style="padding:6px 12px;border-radius:var(--r);border:.5px solid var(--blue);background:var(--blue);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">🖨 印刷</button>
+      <button id="ryoin-btn-print-guest" onclick="printRyoinMap(true)" style="padding:6px 12px;border-radius:var(--r);border:1.5px solid var(--blue);background:#fff;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;">🖨 お客様用</button>
     </div>
   </div>
 </div>
@@ -8391,7 +8392,8 @@ function resetRyoinLayout(){
   showToast('初期配置に戻しました');
 }
 // 会場図を別ウィンドウで印刷（A3横）
-function printRyoinMap(){
+// guest=true：お客様にお見せする用（部屋番号だけ。人数・備考・アレルギー・別注は出さない）
+function printRyoinMap(guest){
   const canvas=document.getElementById('ryoin-map-canvas');
   const cfg=RYOIN_CONFIGS[currentVenue];
   if(!canvas||!cfg)return;
@@ -8415,8 +8417,22 @@ function printRyoinMap(){
     if(!isNaN(l)&&el.style.right==='')el.style.left=(l*stretch)+'px';
     if(!isNaN(wd))el.style.width=(wd*stretch)+'px';
   });
+  if(guest){
+    clone.querySelectorAll('[data-tid]').forEach(function(el){
+      el.removeAttribute('data-mark');
+      if(el.dataset.room){
+        const rooms=el.dataset.room.split(',');
+        el.className='guest-table'+(rooms.length>1?' multi':'');
+        el.style.height=el.style.minHeight||el.style.height;
+        el.innerHTML=rooms.map(function(r){return '<div class="gr">'+escHtml(r)+'<span>号室</span></div>';}).join('');
+      } else {
+        el.className='guest-empty';
+        el.innerHTML='';
+      }
+    });
+  }
   // 備考（アレルギー・子ども用ランチ・別注）を部屋番号の下に書き込む
-  clone.querySelectorAll('[data-room]').forEach(function(el){
+  if(!guest)clone.querySelectorAll('[data-room]').forEach(function(el){
     const roomList=el.dataset.room.split(',');
     const multi=roomList.length>1;
     const lines=[];
@@ -8465,7 +8481,7 @@ function printRyoinMap(){
   const vars=['--bg','--surface','--surface2','--border','--border2','--text','--t2','--t3',
     '--green','--green-l','--amber','--amber-l','--red','--red-l','--blue','--blue-l','--r','--rl'];
   const varCss=':root{'+vars.map(function(v){return v+':'+(rootCss.getPropertyValue(v).trim()||'initial');}).join(';')+'}';
-  const title=escHtml(cfg.label)+'　会場図';
+  const title=escHtml(cfg.label)+(guest?'　お席のご案内':'　会場図');
   const tbDate=document.getElementById('tb-date');
   const dateStr=tbDate?escHtml(tbDate.textContent||''):'';
   const w=window.open('','_blank');
@@ -8498,6 +8514,13 @@ function printRyoinMap(){
     +'#map-inner .rmap-pillar{background:repeating-linear-gradient(45deg,#fff 0 4px,#999 4px 5px)!important;border:1px solid #000;}'
     +'#map-inner .rmap-pillar span{background:#fff;padding:0 3px;}'
     +'#map-inner .rmap-entrance{background:#fff!important;border:1.5px solid #000!important;}'
+    // お客様用：部屋番号だけを大きく
+    +'#map-inner .guest-table{display:flex!important;flex-direction:column;align-items:center;justify-content:center!important;gap:2px;background:#fff!important;border:2.5px solid #000!important;border-radius:10px;padding:4px!important;}'
+    +'#map-inner .guest-table .gr{font-size:30px;font-weight:800;letter-spacing:.02em;line-height:1.1;white-space:nowrap;}'
+    +'#map-inner .guest-table .gr span{font-size:13px;font-weight:700;margin-left:2px;}'
+    +'#map-inner .guest-table.multi .gr{font-size:20px;}'
+    +'#map-inner .guest-empty{background:#fff!important;border:1px dashed #bbb!important;}'
+    +(guest?'h2{font-size:22px;height:10mm;line-height:10mm;}':'')
     +'@page{size:A3 landscape;margin:0;}'
     +'@media print{.bar{display:none!important;}body{padding:8mm;}}'
     +'</style>'
