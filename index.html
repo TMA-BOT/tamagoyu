@@ -8695,7 +8695,7 @@ function renderRyoinMap(){
     if(isAnniv)el.dataset.mark='記念日';else if(isVip)el.dataset.mark='VIP';
     el.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+tw+'px;height:'+th+'px;'
       +'background:'+elBg+';border:1.5px solid '+elBorder+';border-radius:8px;cursor:grab;user-select:none;'
-      +'display:flex;flex-direction:column;justify-content:center;padding:6px 8px;box-shadow:0 1px 4px rgba(0,0,0,.08);';
+      +'display:flex;flex-direction:column;justify-content:'+(filled&&(a.note||BETCHU.some(function(b){return (a.rooms||[a.room]).indexOf(b.room)!==-1;}))?'flex-start':'center')+';padding:6px 8px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden;';
     // タップの処理（クリックはドラッグ処理の onEnd から呼ぶ。タッチでも動くように）
     function onTap(){
       if(_ryoinStampMode){ryoinStampTable(t.id);return;}
@@ -8722,6 +8722,7 @@ function renderRyoinMap(){
         return '<div style="font-size:10px;color:var(--t2);margin-top:2px;line-height:1.5;">'+str+'</div>';
       })():'<div></div>')
       +(filled&&a.note?'<div class="rmap-note" style="font-size:9px;color:var(--red);margin-top:2px;">'+escHtml(a.note.substring(0,10))+'</div>':'')
+      +(filled?ryoinBetchuTag(a.rooms||[a.room]):'')
       +'<button onclick="event.stopPropagation();deleteRyoinTable('+t.id+')" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;border:none;background:rgba(0,0,0,.15);color:#fff;font-size:10px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;" class="no-print">✕</button>';
 
     // ドラッグ処理
@@ -8783,6 +8784,24 @@ function renderRyoinMap(){
     }
   }
   _renderRyoinStampBar();
+}
+// 会場図のテーブルに出す別注・ALGの短い表示（印刷では消して、詳しい内容を書く）
+function ryoinBetchuTag(rooms){
+  const list=BETCHU.filter(function(b){return rooms.indexOf(b.room)!==-1;});
+  if(!list.length)return '';
+  const items=[],alg=[];
+  list.forEach(function(b){
+    (b.items||[]).forEach(function(it){
+      const nm=String(it.name).replace(/\s.*$/,''); // 「黒毛和牛ステーキ 和風…」→「黒毛和牛ステーキ」
+      items.push(nm+'×'+it.qty);
+    });
+    if(b.allergy&&alg.indexOf(b.allergy)===-1)alg.push(b.allergy);
+  });
+  const shown=items.slice(0,2).join('・')+(items.length>2?' 他'+(items.length-2):'');
+  return '<div class="rmap-note" style="margin-top:3px;font-size:9px;line-height:1.3;">'
+    +(items.length?'<div style="color:#9a3412;background:var(--amber-l);border-radius:4px;padding:1px 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">🍽 '+escHtml(shown)+'</div>':'')
+    +(alg.length?'<div style="color:var(--red);font-weight:700;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">⚠ ALG '+escHtml(alg.join('・'))+'</div>':'')
+    +'</div>';
 }
 // ===== 会場図：連続割り当て（部屋を選んでテーブルをタップ） =====
 let _ryoinStampMode=false;
