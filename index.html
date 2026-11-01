@@ -19,6 +19,7 @@
           // 未登録ユーザーは閲覧のみ。旧表記 seiso は cleaning として扱う
           let r=s.exists()?s.val():'viewer';
           if(r==='seiso')r='cleaning';
+          if(window._testModeOn)r='admin'; // テストモード中は全機能を使える
           window._userRole=r;
           const rl={'admin':'管理者','staff':'スタッフ','viewer':'閲覧のみ','front':'フロント','cleaning':'清掃班','ryoin':'料飲','ryoin_lead':'料飲リーダー'};
           const sl=document.getElementById('sync-label');if(sl)sl.textContent=(user.displayName||user.email)+' ('+(rl[window._userRole]||window._userRole)+')';
@@ -1627,12 +1628,21 @@ function enterTestMode(){
   if(!confirm('テストモードを開始します。\n\n・架空のお客さんがランダムにお部屋に入ります\n・テストモード中の変更は保存されません（本番のデータには影響しません）\n・終了するとページを読み込み直して元のデータに戻ります\n\n開始しますか？'))return;
   _testMode=true;
   _installTestGuards();
+  // テスト中は保存されないので、役割に関係なく全機能を使えるようにする（終了時の読み込み直しで元に戻る）
+  window._testOrigRole=window._userRole;
+  window._testModeOn=true;
+  _applyTestRole();
   if(_realtimeUnsub){_realtimeUnsub();_realtimeUnsub=null;}
   _fillTestGuests();
   _showTestBanner();
   const tab=document.querySelector('.tab[data-tab="guests"]');
   if(tab)sw('guests',tab);
   showToast('🧪 テストモードを開始しました');
+}
+function _applyTestRole(){
+  window._userRole='admin';
+  if(typeof updateEditMode==='function')updateEditMode();
+  const sl=document.getElementById('sync-label');if(sl)sl.textContent='🧪 テストモード（全機能を使えます）';
 }
 function exitTestMode(){
   if(!_testMode)return;
@@ -8377,16 +8387,22 @@ function printRyoinMap(){
   });
   // 備考（アレルギー・子ども用ランチ・別注）を部屋番号の下に書き込む
   clone.querySelectorAll('[data-room]').forEach(function(el){
-    const room=el.dataset.room;
-    const g=GUESTS.find(function(x){return x.room===room;})||{};
-    const myBetchu=BETCHU.filter(function(b){return b.room===room;});
+    const roomList=el.dataset.room.split(',');
+    const multi=roomList.length>1;
     const lines=[];
     if(el.dataset.mark)lines.push('★ '+escHtml(el.dataset.mark));
+    roomList.forEach(function(room){
+    const g=GUESTS.find(function(x){return x.room===room;})||{};
+    const myBetchu=BETCHU.filter(function(b){return b.room===room;});
+    const before=lines.length;
+    // アレルギーはバッジが付いている部屋の備考と、別注のアレルギー欄だけ。重複はまとめる
+    const isAlg=g.badge==='ballergy';
     const alg=[];
-    if(g.badge==='ballergy'||g.note)alg.push(g.note||'');
-    myBetchu.forEach(function(b){if(b.allergy)alg.push(b.allergy);});
-    const algText=alg.filter(Boolean).join('／');
-    if(alg.length)lines.push('⚠ アレルギー'+(algText?'：'+escHtml(String(algText)):''));
+    function addAlg(t){t=String(t||'').replace(/アレルギー/g,'').trim();if(t&&alg.indexOf(t)===-1)alg.push(t);}
+    if(isAlg)addAlg(g.note);
+    myBetchu.forEach(function(b){addAlg(b.allergy);});
+    if(isAlg||alg.length)lines.push('⚠ アレルギー'+(alg.length?'：'+escHtml(alg.join('・')):''));
+    if(g.note&&!isAlg)lines.push('備考：'+escHtml(String(g.note)));
     const childPax=(g.ca||0)+(g.cb||0);
     let childLunch=0;
     if(g.personModeChild&&g.personMealsChild&&g.personMealsChild.length){
@@ -8402,6 +8418,9 @@ function printRyoinMap(){
     });
     const special=g.dinnerOrder&&g.dinnerOrder.special;
     if(special)lines.push('特記：'+escHtml(String(special)));
+    // つながったテーブルでは、どの部屋の備考か分かるよう部屋番号を付ける
+    if(multi)for(let i=before;i<lines.length;i++)lines[i]='<b>'+escHtml(room)+'</b> '+lines[i];
+    });
     if(!lines.length)return;
     el.classList.add('has-note');
     const box=document.createElement('div');
@@ -8590,7 +8609,18 @@ function renderRyoinMap(){
     const savedPos=pos[t.id];
     const x=savedPos?savedPos.x:t.x;
     const y=savedPos?savedPos.y:t.y;
-    const a=assign[t.id];
+    // つながったテーブルは、割り当てたすべての部屋をまとめて表示する（代表のテーブル以外は描かないため）
+    const _gOf0=tableGroupOf[currentVenue]||{};
+    const _gm0=_gOf0[t.id]?(((tableGroups[currentVenue]||{})[_gOf0[t.id]])||[]):[];
+    const grpRooms=_gm0.slice().sort(function(p,q){return p-q;}).map(function(id){return assign[id];}).filter(Boolean);
+    const sumOf=function(k){return grpRooms.reduce(function(s2,r){return s2+(r[k]||0);},0);};
+    const a=grpRooms.length>1?{
+      room:grpRooms.map(function(r){return r.room;}).join('・'),
+      rooms:grpRooms.map(function(r){return r.room;}),
+      man:sumOf('man')+sumOf('woman'),woman:0,ca:sumOf('ca'),cb:sumOf('cb'),baby:sumOf('baby'),
+      badge:grpRooms.some(function(r){return r.badge==='ballergy';})?'ballergy':(grpRooms[0].badge||''),
+      note:grpRooms.some(function(r){return r.note;})?'備考あり':'',
+    }:(assign[t.id]||grpRooms[0]);
     const filled=!!a;
     const isAllergy=filled&&a.badge==='ballergy';
     const isAnniv=filled&&a.badge==='banniv';
@@ -8631,7 +8661,7 @@ function renderRyoinMap(){
 
     const el=document.createElement('div');
     el.dataset.tid=t.id;
-    if(filled){el.dataset.filled='1';el.dataset.room=a.room;}
+    if(filled){el.dataset.filled='1';el.dataset.room=a.rooms?a.rooms.join(','):a.room;}
     if(isAnniv)el.dataset.mark='記念日';else if(isVip)el.dataset.mark='VIP';
     el.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+tw+'px;height:'+th+'px;'
       +'background:'+elBg+';border:1.5px solid '+elBorder+';border-radius:8px;cursor:grab;user-select:none;'
