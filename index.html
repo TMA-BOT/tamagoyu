@@ -1689,6 +1689,8 @@ function _showTestBanner(){
   bar.id='test-mode-banner';
   bar.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px;background:repeating-linear-gradient(45deg,#fff3cd 0 12px,#ffe8a1 12px 24px);border-bottom:2px solid #d97706;color:#7c2d12;font-size:12px;font-weight:700;flex-shrink:0;';
   bar.innerHTML='<span>🧪 テストモード中（架空のお客さん・変更は保存されません）</span><span style="flex:1;"></span>'
+    +'<button type="button" onclick="clearTestGuests()" style="padding:4px 10px;border-radius:20px;border:1px solid #d97706;background:#fff;color:#b45309;font-size:11px;font-weight:700;cursor:pointer;">🧹 空にする</button>'
+    +'<button type="button" onclick="openTestGroupModal()" style="padding:4px 10px;border-radius:20px;border:1px solid #d97706;background:#fff;color:#b45309;font-size:11px;font-weight:700;cursor:pointer;">👥 団体客を入れる</button>'
     +'<button type="button" onclick="resetTestGuests()" style="padding:4px 10px;border-radius:20px;border:1px solid #d97706;background:#fff;color:#b45309;font-size:11px;font-weight:700;cursor:pointer;">↩ 最初に戻す</button>'
     +'<button type="button" onclick="refillTestGuests()" style="padding:4px 10px;border-radius:20px;border:1px solid #d97706;background:#fff;color:#b45309;font-size:11px;font-weight:700;cursor:pointer;">🎲 お客さんを入れ直す</button>'
     +'<button type="button" onclick="exitTestMode()" style="padding:4px 10px;border-radius:20px;border:none;background:#b45309;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">テスト終了</button>';
@@ -1702,6 +1704,84 @@ function refillTestGuests(){
   if(!confirm('お客さんをランダムに入れ直しますか？（今のテスト内容は消えます）'))return;
   _fillTestGuests();
   showToast('🎲 お客さんを入れ直しました');
+}
+// 今の状態を「最初に戻す」の戻り先にする
+function _saveTestSnapshot(){
+  _testSnapshot=JSON.stringify({guests:GUESTS,lunches:LUNCHES,betchu:BETCHU});
+}
+// お客さんを全員消して、まっさらにする（チュートリアル用）
+function clearTestGuests(){
+  if(!_testMode)return;
+  if(!confirm('お客さんを全員消して、まっさらな状態にしますか？'))return;
+  _applyTestData({guests:[],lunches:[],betchu:[]});
+  _saveTestSnapshot();
+  showToast('🧹 まっさらにしました。「👥 団体客を入れる」で団体を入れられます');
+}
+// CSV取込のように、団体・ツアーを1部屋にまとめて入れる（部屋割りの練習用）
+function openTestGroupModal(){
+  if(!_testMode)return;
+  const old=document.getElementById('test-group-overlay');if(old)old.remove();
+  const used=GUESTS.map(function(g){return g.room;});
+  const rooms=Array.from(document.querySelectorAll('#em-room option')).map(function(o){return o.value;}).filter(function(r){return r&&used.indexOf(r)===-1;});
+  if(!rooms.length){showToast('空いている部屋がありません');return;}
+  const ov=document.createElement('div');
+  ov.id='test-group-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:450;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  const L='font-size:11px;color:var(--t2);font-weight:700;margin:10px 0 4px;';
+  const I='width:100%;box-sizing:border-box;padding:8px 10px;border:.5px solid var(--border2);border-radius:8px;font-size:15px;background:#fff;';
+  const num=function(id,label,val){return '<div style="flex:1;"><div style="'+L+'">'+label+'</div><input id="'+id+'" type="number" min="0" inputmode="numeric" value="'+val+'" style="'+I+'text-align:center;" onfocus="this.select()"></div>';};
+  ov.innerHTML='<div style="background:var(--surface);border-radius:var(--rl);width:100%;max-width:420px;margin:auto;padding:16px 18px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-size:16px;font-weight:700;">👥 団体客を入れる（テスト）</div>'
+    +'<button type="button" onclick="document.getElementById(\'test-group-overlay\').remove()" style="background:none;border:none;font-size:20px;color:var(--t3);cursor:pointer;">✕</button></div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:4px;">CSV取込のように、1部屋にまとめて入れます。このあと部屋割り・グループ分割の練習ができます。</div>'
+    +'<div style="'+L+'">よく使う人数</div><div style="display:flex;gap:6px;flex-wrap:wrap;">'
+    +[['ツアー 20名',20,0,'○○観光ツアー','19:00'],['ツアー 40名',40,0,'△△バスツアー','19:00'],['団体 12名',10,2,'□□会 ご一行','18:00'],['家族 6名',4,2,'ご家族','18:00']].map(function(p){
+      return '<button type="button" class="tg-preset" data-m="'+p[1]+'" data-c="'+p[2]+'" data-n="'+p[3]+'" data-t="'+p[4]+'" style="padding:6px 10px;border-radius:20px;border:1px solid var(--green);background:var(--green-l);color:var(--green);font-size:12px;font-weight:700;cursor:pointer;">'+p[0]+'</button>';
+    }).join('')+'</div>'
+    +'<div style="'+L+'">部屋番号（取り込まれる部屋）</div><select id="tg-room" style="'+I+'">'+rooms.map(function(r){return '<option value="'+r+'">'+r+'号室</option>';}).join('')+'</select>'
+    +'<div style="display:flex;gap:8px;">'+num('tg-man','大人',20)+num('tg-ca','子A',0)+num('tg-cb','子B',0)+num('tg-baby','添い寝',0)+'</div>'
+    +'<div style="'+L+'">備考（団体名など）</div><input id="tg-note" type="text" value="○○観光ツアー" style="'+I+'">'
+    +'<div style="display:flex;gap:8px;"><div style="flex:1;"><div style="'+L+'">夕食</div><select id="tg-dinner" style="'+I+'"><option value="18:00">18:00</option><option value="19:00" selected>19:00</option><option value="">なし</option></select></div>'
+    +'<div style="flex:1;"><div style="'+L+'">泊数</div><select id="tg-nights" style="'+I+'"><option value="1">1泊</option><option value="2">2泊</option></select></div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:16px;">'
+    +'<button type="button" onclick="document.getElementById(\'test-group-overlay\').remove()" style="padding:12px;border-radius:var(--r);border:.5px solid var(--border2);background:none;color:var(--t2);font-size:13px;cursor:pointer;">キャンセル</button>'
+    +'<button type="button" id="tg-add" style="padding:12px;border-radius:var(--r);border:none;background:var(--green);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">＋ この部屋に入れる</button></div>'
+    +'</div>';
+  document.body.appendChild(ov);
+  ov.querySelectorAll('.tg-preset').forEach(function(b){
+    b.onclick=function(){
+      document.getElementById('tg-man').value=b.dataset.m;
+      document.getElementById('tg-ca').value=b.dataset.c;
+      document.getElementById('tg-note').value=b.dataset.n;
+      document.getElementById('tg-dinner').value=b.dataset.t;
+    };
+  });
+  document.getElementById('tg-add').onclick=function(){
+    const v=function(id){return Math.max(0,parseInt(document.getElementById(id).value)||0);};
+    const man=v('tg-man'),ca=v('tg-ca'),cb=v('tg-cb'),baby=v('tg-baby');
+    if(!(man+ca+cb+baby)){showToast('人数を入れてください');return;}
+    const room=document.getElementById('tg-room').value;
+    const dinner=document.getElementById('tg-dinner').value;
+    GUESTS.push({
+      room:room,man:man,woman:0,ca:ca,cb:cb,baby:baby,
+      dinner:dinner,dinnerVenue:'',dinnerType:'会席',dinnerTypeChild:(ca+cb)>0?'子ども用会席':'',
+      personModeAdult:false,personModeChild:false,personMealsAdult:[],personMealsChild:[],
+      breakfast:'8:00',breakfastVenue:'',note:document.getElementById('tg-note').value.trim(),badge:'',
+      stayType:'normal',nights:parseInt(document.getElementById('tg-nights').value)||1,checkInDate:getDateKey(selectedDate),group:'',
+      checkedOut:false,stayConfirmed:false,
+      dinnerOrder:{special:'',drink:'',charge:''},breakfastOrder:{special:'',drink:'',charge:'',bfDay:''},
+    });
+    GUESTS.sort(function(a,b){return parseInt(a.room)-parseInt(b.room);});
+    saveCurrentData();
+    _saveTestSnapshot();
+    buildGuests();
+    if(typeof buildMeals==='function')buildMeals();
+    ov.remove();
+    const tab=document.querySelector('.tab[data-tab="guests"]');
+    if(tab)sw('guests',tab);
+    showToast('👥 '+room+'号室に'+(man+ca+cb+baby)+'名を入れました。部屋の「編集」→「部屋割り・グループ分割」で分けられます');
+  };
 }
 // 同じお客さんのまま、テスト開始（入れ直し）直後の状態に戻す
 let _testSnapshot=null;
