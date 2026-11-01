@@ -1771,14 +1771,25 @@ function _fillTestGuests(){
   }
   makeGroup('A',2+rnd(3),pick(['花山水','磐梯']),'18:00');
   if(chance(.7))makeGroup('TA',4+rnd(3),'花山水','19:00');
-  // 別注（2〜4件）
+  // 別注：夕食のある部屋の約3割（最低3件）。アレルギーのお客さんは別注のアレルギー欄にも入れる
   const betchu=[];
+  const BETCHU_NOTES=['記念日用、デザートと一緒に','乾杯前に提供','お子様向けに小さめで','追加で注文あり','お酒に合わせて'];
   const withDinner=guests.filter(function(g){return g.dinner;}).sort(function(){return Math.random()-.5;});
-  withDinner.slice(0,2+rnd(3)).forEach(function(g){
-    const items=BETCHU_MENU.slice().sort(function(){return Math.random()-.5;}).slice(0,1+rnd(2))
-      .map(function(m){return {name:m.name,qty:1+rnd(2)};});
-    betchu.push({room:g.room,items:items,allergy:g.badge==='ballergy'?g.note.replace('アレルギー',''):'',note:'',createdAt:'テスト'});
+  const nBetchu=Math.max(3,Math.round(withDinner.length*(.25+Math.random()*.15)));
+  withDinner.slice(0,nBetchu).forEach(function(g){
+    const items=BETCHU_MENU.slice().sort(function(){return Math.random()-.5;}).slice(0,1+rnd(3))
+      .map(function(m){return {name:m.name,qty:1+rnd(Math.max(1,(g.man||1)))};});
+    betchu.push({room:g.room,items:items,
+      allergy:g.badge==='ballergy'?g.note.replace('アレルギー',''):'',
+      note:chance(.35)?pick(BETCHU_NOTES.filter(function(n){return (g.ca||0)+(g.cb||0)>0||n.indexOf('お子様')===-1;})):'',
+      createdAt:String(9+rnd(9)).padStart(2,'0')+':'+String(rnd(60)).padStart(2,'0')});
   });
+  // 別注の注文はないがアレルギー対応だけ必要な部屋（ALGのみ）
+  guests.filter(function(g){return g.badge==='ballergy'&&g.dinner&&!betchu.some(function(b){return b.room===g.room;});})
+    .forEach(function(g){
+      betchu.push({room:g.room,items:[],allergy:g.note.replace('アレルギー',''),note:'',createdAt:String(9+rnd(9)).padStart(2,'0')+':'+String(rnd(60)).padStart(2,'0')});
+    });
+  betchu.sort(function(x,y){return parseInt(x.room)-parseInt(y.room);});
   _testSnapshot=JSON.stringify({guests:guests,lunches:[],betchu:betchu});
   _applyTestData(JSON.parse(_testSnapshot));
 }
