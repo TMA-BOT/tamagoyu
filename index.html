@@ -10799,7 +10799,8 @@ function _shiftPrintPageScript(){
     var nCodes=D.codes.length,legCols=Math.min(nCodes,7),legRows=Math.ceil(nCodes/legCols),legRowH=7*k,legH=legRows*legRowH+5*k;
     var nameW=30*k,kyuW=13*k,dayW=(W-nameW-kyuW)/D.days.length;
     var theadH=11*k;
-    var avail=H-headH-gap*2-legH-theadH-3;
+    var ocH=7*k; // 入込数の行
+    var avail=H-headH-gap*2-legH-theadH-ocH-3;
     var cntH=8*k;
     // 1ページに入れる人数：行の高さが最低限（A3 7mm・A4 約5mm）を下回るなら、ページを分けて均等に振り分ける
     var n=Math.max(1,D.members.length);
@@ -10837,7 +10838,14 @@ function _shiftPrintPageScript(){
         h+='<th class="'+c+'" style="font-size:'+Math.min(4.2*k,dayW*0.5)+'mm">'+x.d+'<br><span style="font-size:'+Math.min(3*k,dayW*0.38)+'mm">'+WD[x.dow]+'</span>'
           +(x.hol?'<br><span style="font-size:'+Math.min(1.9*k,dayW*0.17)+'mm;white-space:nowrap">'+esc(x.hol)+'</span>':'')+'</th>';
       });
-      h+='<th style="font-size:'+(3.4*k)+'mm">公休</th></tr></thead><tbody>';
+      h+='<th style="font-size:'+(3.4*k)+'mm" rowspan=2>公休</th></tr>';
+      // 日付の下に入込数（人数と推奨の目安）
+      h+='<tr style="height:'+ocH+'mm;background:#e0f2fe"><th style="font-size:'+(3*k)+'mm;color:#0369a1;background:#e0f2fe">入込数</th>';
+      D.ocup.forEach(function(o){
+        h+='<th style="background:#e0f2fe;color:'+(o.pax?o.color:'#9ca3af')+';font-size:'+Math.min(3.4*k,dayW*0.42)+'mm;line-height:1">'
+          +(o.pax?o.pax+(o.label?'<br><span style="font-size:'+Math.min(2*k,dayW*0.2)+'mm;font-weight:600">'+esc(o.label)+'</span>':''):'—')+'</th>';
+      });
+      h+='</tr></thead><tbody>';
       // 空欄の行で埋める
       var padded=list.slice();
       while(padded.length<slots)padded.push(null);
@@ -10860,7 +10868,7 @@ function _shiftPrintPageScript(){
       });
       // 出勤人数は全員分の合計（どのページにも出す）
       h+='<tr class=cnt style="height:'+cntH+'mm"><td class=nm style="font-size:'+Math.min(3.2*k,cntH*0.6)+'mm;padding:0 '+(1.5*k)+'mm">出勤人数'+(pages>1?'（全員）':'')+'</td>';
-      D.counts.forEach(function(c){h+='<td style="font-size:'+Math.min(3.6*k,dayW*0.5,cntH*0.65)+'mm">'+c+'</td>';});
+      D.counts.forEach(function(c,i){h+='<td style="font-size:'+Math.min(3.6*k,dayW*0.5,cntH*0.65)+'mm;'+(D.short[i]?'background:#fee2e2;color:#dc2626;':'')+'">'+c+'</td>';});
       h+='<td></td></tr></tbody></table>';
       return '<div class=pg style="width:'+W+'mm;height:'+H+'mm">'+h+'</div>';
     }
@@ -10894,7 +10902,16 @@ function printShift(y,m){
     return members.reduce(function(s,m){var c=m.codes[i];return s+(c&&c!=='休'&&c!=='有'?1:0);},0);
   });
   var codes=Object.keys(SHIFT_CODES).map(function(k){var c=SHIFT_CODES[k];return {k:k,label:c.label,time:c.time,color:c.color,text:c.text};});
-  var data={year:SHIFT_YEAR,month:SHIFT_MONTH,days:days,members:members,counts:counts,codes:codes,printed:new Date().toLocaleDateString('ja-JP')};
+  // 入込数（日付の下に出す）
+  var ocMonth=SHIFT_OCUPANCY[monthKey]||{};
+  var cssVar=function(c){var m=/^var\((--[\w-]+)\)$/.exec(c||'');return m?getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim():c;};
+  var ocup=days.map(function(x){
+    var o=ocMonth[x.d]||{pax:0};var r=_recommendedStaff(o.pax||0);
+    return {pax:o.pax||0,label:r.label,color:cssVar(r.color)||'#555',min:r.min};
+  });
+  // 出勤人数が推奨より少ない日（不足）
+  var short=days.map(function(x,i){return ocup[i].pax>0&&counts[i]<ocup[i].min;});
+  var data={year:SHIFT_YEAR,month:SHIFT_MONTH,days:days,members:members,counts:counts,codes:codes,ocup:ocup,short:short,printed:new Date().toLocaleDateString('ja-JP')};
 
   var page='<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
     +'<title>勤務シフト表 '+SHIFT_YEAR+'年'+SHIFT_MONTH+'月</title>'
