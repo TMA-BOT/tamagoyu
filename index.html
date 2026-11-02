@@ -10807,7 +10807,11 @@ function _shiftPrintPageScript(){
     var pages=Math.ceil(n/maxPer);
     var per=Math.ceil(n/pages);
     if(pages===1)cntH=Math.min(8*k,avail/(n+1));
-    var rowH=(avail-cntH)/per;
+    // 人数が少ないときは行が縦長にならないよう、マスがほぼ正方形になる高さを基準にして、
+    // 余った分は空欄の行で埋める（手書きの書き足しにも使える）
+    var ideal=Math.max(8*k,Math.min(13*k,dayW*1.05));
+    var slots=Math.max(per,Math.floor((avail-cntH)/ideal));
+    var rowH=(avail-cntH)/slots;
     var fs=Math.min(rowH*0.55,dayW*0.62); // マスの文字（mm）
 
     function legendHtml(){
@@ -10834,7 +10838,16 @@ function _shiftPrintPageScript(){
           +(x.hol?'<br><span style="font-size:'+Math.min(1.9*k,dayW*0.17)+'mm;white-space:nowrap">'+esc(x.hol)+'</span>':'')+'</th>';
       });
       h+='<th style="font-size:'+(3.4*k)+'mm">公休</th></tr></thead><tbody>';
-      list.forEach(function(m){
+      // 空欄の行で埋める
+      var padded=list.slice();
+      while(padded.length<slots)padded.push(null);
+      padded.forEach(function(m){
+        if(!m){
+          h+='<tr style="height:'+rowH+'mm"><td class=nm></td>';
+          D.days.forEach(function(x){h+='<td style="background:'+(x.dow===0||x.hol?'#fff5f5':x.dow===6?'#f0f7ff':'#fff')+'"></td>';});
+          h+='<td></td></tr>';
+          return;
+        }
         h+='<tr style="height:'+rowH+'mm"><td class=nm style="font-size:'+Math.min(4.4*k,rowH*0.42)+'mm;padding:0 '+(1.5*k)+'mm">'+esc(m.name)
           +(m.role&&rowH>9*k?'<small style="font-size:'+(2.4*k)+'mm">'+esc(m.role)+'</small>':'')+'</td>';
         m.codes.forEach(function(c,i){
