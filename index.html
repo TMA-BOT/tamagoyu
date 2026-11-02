@@ -10739,6 +10739,78 @@ function addShiftMember(){
 }
 
 // 印刷
+// シフト印刷画面の中で動くプログラム（printShift() が印刷画面に渡す。D=シフトのデータ）
+// 用紙いっぱいに広げ、スタッフが多くて文字が小さくなりすぎるときはページを分ける
+function _shiftPrintPageScript(){
+  var WD=['日','月','火','水','木','金','土'];
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+  window.setSize=function(sz){
+    var P=sz==='A4'?{w:297,h:210}:{w:420,h:297};
+    document.getElementById('pagesize').textContent='@page{size:'+sz+' landscape;margin:8mm;}';
+    ['A3','A4'].forEach(function(x){document.getElementById('b-'+x).className=x===sz?'on':'';});
+    var W=P.w-16,H=P.h-16,k=sz==='A4'?0.72:1; // 印刷できる範囲（mm）と、A4のときの縮小率
+    var headH=9*k,gap=3*k;
+    var nCodes=D.codes.length,legCols=Math.min(nCodes,7),legRows=Math.ceil(nCodes/legCols),legRowH=7*k,legH=legRows*legRowH+5*k;
+    var nameW=30*k,kyuW=13*k,dayW=(W-nameW-kyuW)/D.days.length;
+    var theadH=11*k;
+    var avail=H-headH-gap*2-legH-theadH-3;
+    var cntH=8*k;
+    // 1ページに入れる人数：行の高さが最低限（A3 7mm・A4 約5mm）を下回るなら、ページを分けて均等に振り分ける
+    var n=Math.max(1,D.members.length);
+    var maxPer=Math.max(1,Math.floor((avail-cntH)/(7*k)));
+    var pages=Math.ceil(n/maxPer);
+    var per=Math.ceil(n/pages);
+    if(pages===1)cntH=Math.min(8*k,avail/(n+1));
+    var rowH=(avail-cntH)/per;
+    var fs=Math.min(rowH*0.55,dayW*0.62); // マスの文字（mm）
+
+    function legendHtml(){
+      var h='<div style="margin-top:'+gap+'mm"><div style="font-size:'+(3.2*k)+'mm;font-weight:800;margin-bottom:'+(1.2*k)+'mm">勤務コード表</div>';
+      h+='<div class=legend style="grid-template-columns:repeat('+legCols+',1fr);gap:'+(1.5*k)+'mm">';
+      D.codes.forEach(function(c){
+        h+='<div style="height:'+(legRowH-1.5*k)+'mm;padding:0 '+(1.5*k)+'mm;gap:'+(2*k)+'mm;font-size:'+(3.4*k)+'mm">'
+          +'<b style="background:'+c.color+';color:'+c.text+';min-width:'+(7*k)+'mm;height:'+(legRowH-3*k)+'mm;font-size:'+(3.8*k)+'mm">'+esc(c.label)+'</b><span>'+esc(c.time)+'</span></div>';
+      });
+      return h+'</div></div>';
+    }
+    function pageHtml(list,pi){
+      var h='<div class=hd style="height:'+headH+'mm"><h1 style="font-size:'+(6*k)+'mm">フロント　勤務シフト表　'+D.year+'年'+D.month+'月'
+        +(pages>1?'<span style="font-size:'+(4*k)+'mm;color:#555;margin-left:'+(3*k)+'mm">（'+(pi+1)+'/'+pages+'）</span>':'')+'</h1>'
+        +'<span style="font-size:'+(3*k)+'mm">印刷日：'+D.printed+'</span></div>';
+      h+=legendHtml();
+      h+='<table style="margin-top:'+gap+'mm"><colgroup><col style="width:'+nameW+'mm">';
+      D.days.forEach(function(){h+='<col>';});
+      h+='<col style="width:'+kyuW+'mm"></colgroup>';
+      h+='<thead><tr style="height:'+theadH+'mm"><th style="font-size:'+(3.6*k)+'mm">氏名</th>';
+      D.days.forEach(function(x){
+        var c=x.hol?'hol':x.dow===0?'sun':x.dow===6?'sat':'';
+        h+='<th class="'+c+'" style="font-size:'+Math.min(4.2*k,dayW*0.5)+'mm">'+x.d+'<br><span style="font-size:'+Math.min(3*k,dayW*0.38)+'mm">'+WD[x.dow]+'</span>'
+          +(x.hol?'<br><span style="font-size:'+Math.min(1.9*k,dayW*0.17)+'mm;white-space:nowrap">'+esc(x.hol)+'</span>':'')+'</th>';
+      });
+      h+='<th style="font-size:'+(3.4*k)+'mm">公休</th></tr></thead><tbody>';
+      list.forEach(function(m){
+        h+='<tr style="height:'+rowH+'mm"><td class=nm style="font-size:'+Math.min(4.4*k,rowH*0.42)+'mm;padding:0 '+(1.5*k)+'mm">'+esc(m.name)
+          +(m.role&&rowH>9*k?'<small style="font-size:'+(2.4*k)+'mm">'+esc(m.role)+'</small>':'')+'</td>';
+        m.codes.forEach(function(c,i){
+          var x=D.days[i];var cd=D.codes.find(function(z){return z.k===c;});
+          var bg=cd?cd.color:(x.dow===0||x.hol?'#fff5f5':x.dow===6?'#f0f7ff':'#fff');
+          h+='<td style="background:'+bg+';color:'+(cd?cd.text:'#333')+';font-size:'+fs+'mm;font-weight:800">'+esc(c)+'</td>';
+        });
+        var kc=!m.kyukei?'#9ca3af':m.kyu<9?'#d97706':m.kyu>9?'#dc2626':'#16a34a';
+        h+='<td style="font-size:'+Math.min(3.8*k,rowH*0.4)+'mm;font-weight:800;color:'+kc+'">'+(m.kyukei?m.kyu+'/9':'—')+'</td></tr>';
+      });
+      // 出勤人数は全員分の合計（どのページにも出す）
+      h+='<tr class=cnt style="height:'+cntH+'mm"><td class=nm style="font-size:'+Math.min(3.2*k,cntH*0.6)+'mm;padding:0 '+(1.5*k)+'mm">出勤人数'+(pages>1?'（全員）':'')+'</td>';
+      D.counts.forEach(function(c){h+='<td style="font-size:'+Math.min(3.6*k,dayW*0.5,cntH*0.65)+'mm">'+c+'</td>';});
+      h+='<td></td></tr></tbody></table>';
+      return '<div class=pg style="width:'+W+'mm;height:'+H+'mm">'+h+'</div>';
+    }
+    var out='';
+    for(var pi=0;pi<pages;pi++)out+=pageHtml(D.members.slice(pi*per,(pi+1)*per),pi);
+    document.getElementById('sheet').innerHTML=out;
+  };
+  setSize('A3');
+}
 // シフト表の印刷：A3・A4（横）を選べて、用紙いっぱいに拡大する。勤務コード表も一緒に印刷
 function printShift(){
   var daysInMonth=new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();
@@ -10770,7 +10842,8 @@ function printShift(){
     +'.bar button{padding:8px 16px;border-radius:8px;border:1.5px solid #2c4f7a;background:#fff;color:#2c4f7a;font-size:14px;font-weight:700;cursor:pointer;}'
     +'.bar button.on{background:#2c4f7a;color:#fff;}'
     +'.bar .print{background:#2d5a3d;border-color:#2d5a3d;color:#fff;margin-left:auto;}'
-    +'#sheet{background:#fff;margin:12px auto;box-shadow:0 2px 12px rgba(0,0,0,.15);overflow:hidden;}'
+    +'#sheet{margin:12px auto;}'
+    +'.pg{background:#fff;margin:0 auto 12px;box-shadow:0 2px 12px rgba(0,0,0,.15);overflow:hidden;}'
     +'.hd{display:flex;justify-content:space-between;align-items:baseline;}'
     +'.hd h1{font-weight:800;}'
     +'.hd span{color:#666;}'
@@ -10784,7 +10857,7 @@ function printShift(){
     +'.legend{display:grid;}'
     +'.legend div{display:flex;align-items:center;border:.3mm solid #d1d5db;border-radius:1.5mm;}'
     +'.legend b{display:inline-flex;align-items:center;justify-content:center;border-radius:1mm;font-weight:800;}'
-    +'@media print{body{background:#fff;}.bar{display:none!important;}#sheet{margin:0;box-shadow:none;}}'
+    +'@media print{body{background:#fff;}.bar{display:none!important;}#sheet{margin:0;}.pg{margin:0;box-shadow:none;break-after:page;}.pg:last-child{break-after:auto;}}'
     +'</style></head><body>'
     +'<div class="bar"><span style="font-size:13px;font-weight:700;color:#555;">用紙</span>'
     +'<button type="button" id="b-A3" onclick="setSize(\'A3\')">A3 横</button>'
@@ -10793,47 +10866,7 @@ function printShift(){
     +'<button type="button" onclick="window.close()">閉じる</button></div>'
     +'<div id="sheet"></div>'
     +'<script>var D='+JSON.stringify(data).replace(/</g,'\\u003c')+';'
-    +'var WD=["日","月","火","水","木","金","土"];'
-    +'function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");}'
-    +'function setSize(sz){'
-    +' var P=sz==="A4"?{w:297,h:210}:{w:420,h:297};'
-    +' document.getElementById("pagesize").textContent="@page{size:"+sz+" landscape;margin:8mm;}";'
-    +' ["A3","A4"].forEach(function(x){document.getElementById("b-"+x).className=x===sz?"on":"";});'
-    +' var W=P.w-16,H=P.h-16,k=sz==="A4"?0.72:1;'   // 印刷できる範囲（mm）と、A4のときの縮小率
-    +' var sh=document.getElementById("sheet");sh.style.width=W+"mm";sh.style.height=H+"mm";sh.style.padding="0";'
-    +' var headH=9*k,gap=3*k;'
-    +' var nCodes=D.codes.length,legCols=Math.min(nCodes,sz==="A4"?7:7),legRows=Math.ceil(nCodes/legCols),legRowH=7*k,legH=legRows*legRowH+5*k;'
-    +' var nameW=30*k,kyuW=13*k,dayW=(W-nameW-kyuW)/D.days.length;'
-    +' var theadH=11*k;'
-    // スタッフの人数に関係なく用紙1枚にちょうど収まるよう、残りの高さを人数で割って行の高さを決める
-    +' var avail=H-headH-gap*2-legH-theadH-3;'
-    +' var nm=Math.max(1,D.members.length);'
-    +' var cntH=Math.min(8*k,avail/(nm+1));'
-    +' var rowH=(avail-cntH)/nm;'
-    +' var fs=Math.min(rowH*0.55,dayW*0.62);'          // マスの文字（mm）
-    +' var h="<div class=hd style=\\"height:"+headH+"mm\\"><h1 style=\\"font-size:"+(6*k)+"mm\\">フロント　勤務シフト表　"+D.year+"年"+D.month+"月</h1><span style=\\"font-size:"+(3*k)+"mm\\">印刷日："+D.printed+"</span></div>";'
-    +' h+="<div style=\\"margin-top:"+gap+"mm\\"><div style=\\"font-size:"+(3.2*k)+"mm;font-weight:800;margin-bottom:"+(1.2*k)+"mm\\">勤務コード表</div>";'
-    +' h+="<div class=legend style=\\"grid-template-columns:repeat("+legCols+",1fr);gap:"+(1.5*k)+"mm\\">";'
-    +' D.codes.forEach(function(c){h+="<div style=\\"height:"+(legRowH-1.5*k)+"mm;padding:0 "+(1.5*k)+"mm;gap:"+(2*k)+"mm;font-size:"+(3.4*k)+"mm\\"><b style=\\"background:"+c.color+";color:"+c.text+";min-width:"+(7*k)+"mm;height:"+(legRowH-3*k)+"mm;font-size:"+(3.8*k)+"mm\\">"+esc(c.label)+"</b><span>"+esc(c.time)+"</span></div>";});'
-    +' h+="</div></div>";'
-    +' h+="<table style=\\"margin-top:"+gap+"mm\\"><colgroup><col style=\\"width:"+nameW+"mm\\">";'
-    +' D.days.forEach(function(){h+="<col>";});h+="<col style=\\"width:"+kyuW+"mm\\"></colgroup>";'
-    +' h+="<thead><tr style=\\"height:"+theadH+"mm\\"><th style=\\"font-size:"+(3.6*k)+"mm\\">氏名</th>";'
-    +' D.days.forEach(function(x){var c=x.hol?"hol":x.dow===0?"sun":x.dow===6?"sat":"";'
-    +'  h+="<th class="+c+" style=\\"font-size:"+Math.min(4.2*k,dayW*0.5)+"mm\\">"+x.d+"<br><span style=\\"font-size:"+Math.min(3*k,dayW*0.38)+"mm\\">"+WD[x.dow]+"</span>"+(x.hol?"<br><span style=\\"font-size:"+Math.min(1.9*k,dayW*0.17)+"mm;white-space:nowrap\\">"+esc(x.hol)+"</span>":"")+"</th>";});'
-    +' h+="<th style=\\"font-size:"+(3.4*k)+"mm\\">公休</th></tr></thead><tbody>";'
-    +' D.members.forEach(function(m){'
-    +'  h+="<tr style=\\"height:"+rowH+"mm\\"><td class=nm style=\\"font-size:"+Math.min(4.4*k,rowH*0.42)+"mm;padding:0 "+(1.5*k)+"mm\\">"+esc(m.name)+(m.role&&rowH>9*k?"<small style=\\"font-size:"+(2.4*k)+"mm\\">"+esc(m.role)+"</small>":"")+"</td>";'
-    +'  m.codes.forEach(function(c,i){var x=D.days[i];var cd=D.codes.find(function(z){return z.k===c;});'
-    +'   var bg=cd?cd.color:(x.dow===0||x.hol?"#fff5f5":x.dow===6?"#f0f7ff":"#fff");'
-    +'   h+="<td style=\\"background:"+bg+";color:"+(cd?cd.text:"#333")+";font-size:"+fs+"mm;font-weight:800\\">"+esc(c)+"</td>";});'
-    +'  var kc=!m.kyukei?"#9ca3af":m.kyu<9?"#d97706":m.kyu>9?"#dc2626":"#16a34a";'
-    +'  h+="<td style=\\"font-size:"+Math.min(3.8*k,rowH*0.4)+"mm;font-weight:800;color:"+kc+"\\">"+(m.kyukei?m.kyu+"/9":"—")+"</td></tr>";});'
-    +' h+="<tr class=cnt style=\\"height:"+cntH+"mm\\"><td class=nm style=\\"font-size:"+Math.min(3.2*k,cntH*0.6)+"mm;padding:0 "+(1.5*k)+"mm\\">出勤人数</td>";'
-    +' D.counts.forEach(function(c){h+="<td style=\\"font-size:"+Math.min(3.6*k,dayW*0.5,cntH*0.65)+"mm\\">"+c+"</td>";});h+="<td></td></tr></tbody></table>";'
-    +' sh.innerHTML=h;'
-    +'}'
-    +'setSize("A3");'
+    +'('+_shiftPrintPageScript.toString()+')();'
     +'<\/script></body></html>';
 
   var w=window.open('','_blank','width=1300,height=900');
