@@ -10739,52 +10739,105 @@ function addShiftMember(){
 }
 
 // 印刷
+// シフト表の印刷：A3・A4（横）を選べて、用紙いっぱいに拡大する。勤務コード表も一緒に印刷
 function printShift(){
   var daysInMonth=new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();
   var monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
   var monthData=SHIFT_DATA[monthKey]||{};
-  var weekDays=['日','月','火','水','木','金','土'];
-
-  var thead='<tr><th style="min-width:80px;padding:4px 6px;font-size:10px;border:1px solid #ccc;background:#f8f8f8;">氏名</th>';
+  var days=[];
   for(var d=1;d<=daysInMonth;d++){
     var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
-    var isSun=dow===0,isSat=dow===6;
-    var dc=isSun?'color:#e11d48':isSat?'color:#1d4ed8':'';
-    thead+='<th style="min-width:28px;padding:2px;text-align:center;font-size:9px;border:1px solid #ccc;background:#f8f8f8;'+dc+'">'+d+'<br>'+weekDays[dow]+'</th>';
+    days.push({d:d,dow:dow,hol:_getHoliday(SHIFT_YEAR,SHIFT_MONTH,d)||''});
   }
-  thead+='<th style="min-width:40px;padding:4px;text-align:center;font-size:10px;border:1px solid #ccc;background:#f8f8f8;">公休</th></tr>';
-
-  var tbody='';
-  SHIFT_MEMBERS.forEach(function(m){
-    var kyuCount=0;
-    tbody+='<tr>';
-    tbody+='<td style="padding:4px 6px;font-size:10px;font-weight:700;border:1px solid #ccc;white-space:nowrap;">'+m.name+'<br><span style="font-size:8px;font-weight:400;color:#888;">'+m.role+'</span></td>';
-    for(var d=1;d<=daysInMonth;d++){
-      var code=(monthData[m.id]||{})[d]||'';
-      if(code==='休'||code==='有')kyuCount++;
-      var dow=new Date(SHIFT_YEAR,SHIFT_MONTH-1,d).getDay();
-      var bg=code&&SHIFT_CODES[code]?SHIFT_CODES[code].color:dow===0?'#fff5f5':dow===6?'#f0f7ff':'#fff';
-      var tc=code&&SHIFT_CODES[code]?SHIFT_CODES[code].text:'#333';
-      tbody+='<td style="text-align:center;font-size:10px;font-weight:700;background:'+bg+';color:'+tc+';border:1px solid #ccc;padding:2px;">'+code+'</td>';
-    }
-    tbody+='<td style="text-align:center;font-size:10px;font-weight:700;border:1px solid #ccc;'+(m.kyukei?(kyuCount<9?'color:#d97706':kyuCount>9?'color:#dc2626':'color:#16a34a'):'color:#aaa')+';">'+(m.kyukei?kyuCount+'/9':'—')+'</td>';
-    tbody+='</tr>';
+  var members=SHIFT_MEMBERS.map(function(m){
+    var codes=[],kyu=0;
+    days.forEach(function(x){var c=(monthData[m.id]||{})[x.d]||'';if(c==='休'||c==='有')kyu++;codes.push(c);});
+    return {name:m.name,role:m.role||'',kyukei:!!m.kyukei,codes:codes,kyu:kyu};
   });
+  var counts=days.map(function(x,i){
+    return members.reduce(function(s,m){var c=m.codes[i];return s+(c&&c!=='休'&&c!=='有'?1:0);},0);
+  });
+  var codes=Object.keys(SHIFT_CODES).map(function(k){var c=SHIFT_CODES[k];return {k:k,label:c.label,time:c.time,color:c.color,text:c.text};});
+  var data={year:SHIFT_YEAR,month:SHIFT_MONTH,days:days,members:members,counts:counts,codes:codes,printed:new Date().toLocaleDateString('ja-JP')};
 
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    +'<style>@page{size:A3 landscape;margin:8mm;}body{margin:0;font-family:sans-serif;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ccc;}</style>'
-    +'</head><body>'
-    +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">'
-    +'<h2 style="margin:0;font-size:14px;">フロント　勤務シフト表　'+SHIFT_YEAR+'年'+SHIFT_MONTH+'月</h2>'
-    +'<span style="font-size:10px;color:#888;">印刷日：'+new Date().toLocaleDateString('ja-JP')+'</span>'
-    +'</div>'
-    +'<table>'+thead+tbody+'</table>'
-    +'</body></html>';
+  var page='<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>勤務シフト表 '+SHIFT_YEAR+'年'+SHIFT_MONTH+'月</title>'
+    +'<style id="pagesize">@page{size:A3 landscape;margin:8mm;}</style>'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0;print-color-adjust:exact;-webkit-print-color-adjust:exact;}'
+    +'body{font-family:"Hiragino Sans","Noto Sans JP","Meiryo",sans-serif;color:#1a1a18;background:#e5e7eb;}'
+    +'.bar{position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center;padding:10px 14px;background:#fff;border-bottom:1px solid #ddd;}'
+    +'.bar button{padding:8px 16px;border-radius:8px;border:1.5px solid #2c4f7a;background:#fff;color:#2c4f7a;font-size:14px;font-weight:700;cursor:pointer;}'
+    +'.bar button.on{background:#2c4f7a;color:#fff;}'
+    +'.bar .print{background:#2d5a3d;border-color:#2d5a3d;color:#fff;margin-left:auto;}'
+    +'#sheet{background:#fff;margin:12px auto;box-shadow:0 2px 12px rgba(0,0,0,.15);overflow:hidden;}'
+    +'.hd{display:flex;justify-content:space-between;align-items:baseline;}'
+    +'.hd h1{font-weight:800;}'
+    +'.hd span{color:#666;}'
+    +'table{border-collapse:collapse;table-layout:fixed;width:100%;}'
+    +'th,td{border:.3mm solid #9ca3af;text-align:center;vertical-align:middle;overflow:hidden;}'
+    +'thead th{background:#f3f4f6;font-weight:700;line-height:1.1;}'
+    +'.nm{text-align:left;font-weight:700;white-space:nowrap;}'
+    +'.nm small{display:block;font-weight:400;color:#6b7280;}'
+    +'.sun,.hol{color:#dc2626;}.sat{color:#1d4ed8;}'
+    +'.cnt td{background:#f3f4f6;font-weight:700;}'
+    +'.legend{display:grid;}'
+    +'.legend div{display:flex;align-items:center;border:.3mm solid #d1d5db;border-radius:1.5mm;}'
+    +'.legend b{display:inline-flex;align-items:center;justify-content:center;border-radius:1mm;font-weight:800;}'
+    +'@media print{body{background:#fff;}.bar{display:none!important;}#sheet{margin:0;box-shadow:none;}}'
+    +'</style></head><body>'
+    +'<div class="bar"><span style="font-size:13px;font-weight:700;color:#555;">用紙</span>'
+    +'<button type="button" id="b-A3" onclick="setSize(\'A3\')">A3 横</button>'
+    +'<button type="button" id="b-A4" onclick="setSize(\'A4\')">A4 横</button>'
+    +'<button type="button" class="print" onclick="window.print()">🖨 印刷</button>'
+    +'<button type="button" onclick="window.close()">閉じる</button></div>'
+    +'<div id="sheet"></div>'
+    +'<script>var D='+JSON.stringify(data).replace(/</g,'\\u003c')+';'
+    +'var WD=["日","月","火","水","木","金","土"];'
+    +'function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");}'
+    +'function setSize(sz){'
+    +' var P=sz==="A4"?{w:297,h:210}:{w:420,h:297};'
+    +' document.getElementById("pagesize").textContent="@page{size:"+sz+" landscape;margin:8mm;}";'
+    +' ["A3","A4"].forEach(function(x){document.getElementById("b-"+x).className=x===sz?"on":"";});'
+    +' var W=P.w-16,H=P.h-16,k=sz==="A4"?0.72:1;'   // 印刷できる範囲（mm）と、A4のときの縮小率
+    +' var sh=document.getElementById("sheet");sh.style.width=W+"mm";sh.style.height=H+"mm";sh.style.padding="0";'
+    +' var headH=9*k,gap=3*k;'
+    +' var nCodes=D.codes.length,legCols=Math.min(nCodes,sz==="A4"?7:7),legRows=Math.ceil(nCodes/legCols),legRowH=7*k,legH=legRows*legRowH+5*k;'
+    +' var nameW=30*k,kyuW=13*k,dayW=(W-nameW-kyuW)/D.days.length;'
+    +' var theadH=11*k;'
+    +' var rows=D.members.length+1;'
+    +' var rowH=Math.max(5,Math.min(18*k,(H-headH-gap*2-legH-theadH)/rows));'
+    +' var fs=Math.min(rowH*0.55,dayW*0.62);'          // マスの文字（mm）
+    +' var h="<div class=hd style=\\"height:"+headH+"mm\\"><h1 style=\\"font-size:"+(6*k)+"mm\\">フロント　勤務シフト表　"+D.year+"年"+D.month+"月</h1><span style=\\"font-size:"+(3*k)+"mm\\">印刷日："+D.printed+"</span></div>";'
+    +' h+="<table style=\\"margin-top:"+gap+"mm\\"><colgroup><col style=\\"width:"+nameW+"mm\\">";'
+    +' D.days.forEach(function(){h+="<col>";});h+="<col style=\\"width:"+kyuW+"mm\\"></colgroup>";'
+    +' h+="<thead><tr style=\\"height:"+theadH+"mm\\"><th style=\\"font-size:"+(3.6*k)+"mm\\">氏名</th>";'
+    +' D.days.forEach(function(x){var c=x.hol?"hol":x.dow===0?"sun":x.dow===6?"sat":"";'
+    +'  h+="<th class="+c+" style=\\"font-size:"+Math.min(4.2*k,dayW*0.5)+"mm\\">"+x.d+"<br><span style=\\"font-size:"+Math.min(3*k,dayW*0.38)+"mm\\">"+WD[x.dow]+"</span>"+(x.hol?"<br><span style=\\"font-size:"+Math.min(1.9*k,dayW*0.17)+"mm;white-space:nowrap\\">"+esc(x.hol)+"</span>":"")+"</th>";});'
+    +' h+="<th style=\\"font-size:"+(3.4*k)+"mm\\">公休</th></tr></thead><tbody>";'
+    +' D.members.forEach(function(m){'
+    +'  h+="<tr style=\\"height:"+rowH+"mm\\"><td class=nm style=\\"font-size:"+Math.min(4.4*k,rowH*0.42)+"mm;padding:0 "+(1.5*k)+"mm\\">"+esc(m.name)+(m.role&&rowH>9*k?"<small style=\\"font-size:"+(2.4*k)+"mm\\">"+esc(m.role)+"</small>":"")+"</td>";'
+    +'  m.codes.forEach(function(c,i){var x=D.days[i];var cd=D.codes.find(function(z){return z.k===c;});'
+    +'   var bg=cd?cd.color:(x.dow===0||x.hol?"#fff5f5":x.dow===6?"#f0f7ff":"#fff");'
+    +'   h+="<td style=\\"background:"+bg+";color:"+(cd?cd.text:"#333")+";font-size:"+fs+"mm;font-weight:800\\">"+esc(c)+"</td>";});'
+    +'  var kc=!m.kyukei?"#9ca3af":m.kyu<9?"#d97706":m.kyu>9?"#dc2626":"#16a34a";'
+    +'  h+="<td style=\\"font-size:"+Math.min(3.8*k,rowH*0.4)+"mm;font-weight:800;color:"+kc+"\\">"+(m.kyukei?m.kyu+"/9":"—")+"</td></tr>";});'
+    +' h+="<tr class=cnt style=\\"height:"+Math.min(rowH,9*k)+"mm\\"><td class=nm style=\\"font-size:"+(3.2*k)+"mm;padding:0 "+(1.5*k)+"mm\\">出勤人数</td>";'
+    +' D.counts.forEach(function(c){h+="<td style=\\"font-size:"+Math.min(3.6*k,dayW*0.5)+"mm\\">"+c+"</td>";});h+="<td></td></tr></tbody></table>";'
+    +' h+="<div style=\\"margin-top:"+gap+"mm\\"><div style=\\"font-size:"+(3.2*k)+"mm;font-weight:800;margin-bottom:"+(1.2*k)+"mm\\">勤務コード表</div>";'
+    +' h+="<div class=legend style=\\"grid-template-columns:repeat("+legCols+",1fr);gap:"+(1.5*k)+"mm\\">";'
+    +' D.codes.forEach(function(c){h+="<div style=\\"height:"+(legRowH-1.5*k)+"mm;padding:0 "+(1.5*k)+"mm;gap:"+(2*k)+"mm;font-size:"+(3.4*k)+"mm\\"><b style=\\"background:"+c.color+";color:"+c.text+";min-width:"+(7*k)+"mm;height:"+(legRowH-3*k)+"mm;font-size:"+(3.8*k)+"mm\\">"+esc(c.label)+"</b><span>"+esc(c.time)+"</span></div>";});'
+    +' h+="</div></div>";'
+    +' sh.innerHTML=h;'
+    +'}'
+    +'setSize("A3");'
+    +'<\/script></body></html>';
 
-  var w=window.open('','_blank','width=1200,height=800');
-  w.document.write(html);
+  var w=window.open('','_blank','width=1300,height=900');
+  if(!w){showToast('ポップアップがブロックされました。許可してから再度お試しください');return;}
+  w.document.open();
+  w.document.write(page);
   w.document.close();
-  w.onload=function(){w.print();};
 }
 </script>
 
