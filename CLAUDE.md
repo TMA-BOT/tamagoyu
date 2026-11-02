@@ -224,6 +224,29 @@ CSV取込では団体・ツアーが1部屋にまとめて入るため、そこ�
 
 ---
 
+## 印刷の決まり（全画面共通）
+
+どの印刷も「用紙を選んで、その用紙に合わせて拡大・縮小する」形にそろえている。新しく印刷を作るときもこれに合わせる。
+
+- 共通の印刷画面：`openFitPrint(opts)`（中身のHTMLを渡す）／`openFitPrintDoc(html,opts)`（完成済みのHTML文書を渡す）
+  - `opts.sizes`：選べる用紙（`PRINT_PAPERS` の A3L/A3P/A4L/A4P/A5L/A5P/R72）、`def`：初期の用紙、`designWidth`：中身を組む幅（px）、`key`：前回選んだ用紙を覚えるための名前
+  - 高さのある用紙は中身全体を1枚に収まるよう拡大・縮小（CSS `zoom`）。`long:true` やレシート（R72）は用紙の幅に合わせ、長い分は次のページへ続ける
+  - 印刷画面のプログラムは `_fitPrintPageScript()` に普通の関数として書き、`toString()` で渡す
+  - プレビューを見てから「🖨 印刷」を押す形（開いてすぐ印刷はしない）
+
+| 印刷 | 関数 | 用紙 |
+|---|---|---|
+| 会場図（スタッフ用・お客様用） | `printRyoinMap(guest)` → `openFitPrint` | A3横・A4横（1枚に収める） |
+| シフト表 | `printShift(y,m)`（専用の画面、`_shiftPrintPageScript`） | A3横・A4横（32人を超えるとページを分ける） |
+| シフト表（別タブ画面の印刷ボタン） | 元の画面の `printShift(y,m)` を呼ぶ | 同上 |
+| お品書き（2枚並び） | `printOshinagaki()` → `openFitPrintDoc` | A4横・A3横 |
+| ランチの月集計 | `printMonthlySummary()` → `openFitPrint`（long） | A4縦・A3縦・A4横・A3横（幅に合わせて複数ページ） |
+| 別注注文書 | `printBetchu(idx)` → `openFitPrint` | レシート72mm・A5縦・A4縦 |
+| 別注・ALG伝票／ランチ伝票 | `printBetchuSelected()` など | 72mmレシート固定（レシートプリンター用。変えない） |
+| 車ナンバー集計 | `number_counter.html` の `ncPrint()` | A4横・A3横（A3は `zoom` で拡大） |
+
+---
+
 ## Firebase構成
 
 - `window._db` — Firebaseデータベースインスタンス

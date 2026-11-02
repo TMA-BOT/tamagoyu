@@ -3639,22 +3639,21 @@ function printBetchu(idx){
   const itemsHtml=b.items.map(function(it){
     return '<tr><td style="padding:6px 8px;font-size:15px;">'+escHtml(it.name)+'</td><td style="padding:6px 8px;font-size:15px;text-align:right;font-weight:700;">×'+it.qty+'</td></tr>';
   }).join('');
-  const w=window.open('','_blank','width=400,height=600');
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>別注注文書</title>'
-    +'<style>body{font-family:sans-serif;margin:0;padding:16px;}hr{border:.5px solid #000;}table{width:100%;border-collapse:collapse;}td{vertical-align:top;}'
-    +'@media print{body{padding:8px;}}</style></head><body>'
-    +'<div style="text-align:center;font-size:18px;font-weight:700;margin-bottom:8px;">別　注　注　文　書</div>'
-    +'<hr>'
-    +'<div style="font-size:24px;font-weight:700;text-align:center;padding:8px 0;">'+escHtml(b.room)+'号室</div>'
-    +'<hr>'
-    +'<table>'+itemsHtml+'</table>'
-    +'<hr>'
-    +(b.allergy?'<div style="margin:8px 0;font-size:14px;"><span style="font-weight:700;color:#c00;">⚠ アレルギー：</span>'+escHtml(b.allergy)+'</div><hr>':'')
-    +(b.note?'<div style="margin:8px 0;font-size:14px;"><span style="font-weight:700;">備考：</span>'+escHtml(b.note)+'</div><hr>':'')
-    +'<div style="margin-top:8px;font-size:11px;color:#666;">受付時間：'+escHtml(b.createdAt||'')+'　印刷：'+dateStr+'</div>'
-    +'<script>window.onload=function(){window.print();}<\/script>'
-    +'</body></html>');
-  w.document.close();
+  // レシート（72mm）／A5縦／A4縦から選ぶ。A5・A4は用紙いっぱいに拡大する
+  openFitPrint({
+    key:'betchu_slip',title:'別注注文書 '+b.room+'号室',
+    sizes:['R72','A5P','A4P'],def:'R72',designWidth:300,
+    css:'#fit{font-family:sans-serif;padding:6px 8px;box-sizing:border-box;color:#000;}#fit hr{border:0;border-top:1px solid #000;margin:4px 0;}#fit table{width:100%;border-collapse:collapse;}#fit td{vertical-align:top;}',
+    bodyHtml:'<div style="text-align:center;font-size:18px;font-weight:700;margin-bottom:8px;">別　注　注　文　書</div>'
+      +'<hr>'
+      +'<div style="font-size:24px;font-weight:700;text-align:center;padding:8px 0;">'+escHtml(b.room)+'号室</div>'
+      +'<hr>'
+      +'<table>'+itemsHtml+'</table>'
+      +'<hr>'
+      +(b.allergy?'<div style="margin:8px 0;font-size:14px;"><span style="font-weight:700;color:#c00;">⚠ アレルギー：</span>'+escHtml(b.allergy)+'</div><hr>':'')
+      +(b.note?'<div style="margin:8px 0;font-size:14px;"><span style="font-weight:700;">備考：</span>'+escHtml(b.note)+'</div><hr>':'')
+      +'<div style="margin-top:8px;font-size:11px;color:#666;">受付時間：'+escHtml(b.createdAt||'')+'　印刷：'+dateStr+'</div>',
+  });
 }
 function buildLunchList(){
   const list=document.getElementById('lunch-list');if(!list)return;
@@ -8483,7 +8482,7 @@ function printRyoinMap(guest){
   clone.style.transform='';
   clone.style.margin='0';
   clone.querySelectorAll('button,.no-print,.rmap-note').forEach(function(b){b.remove();});
-  // A3横（420×297mm）から余白を引いた範囲（1mm≒3.7795px）
+  // 横長の用紙（A3横・A4横は同じ縦横比）に合わせて座席を横に広げるための計算（1mm≒3.7795px）
   const MM=3.7795;
   const availW=(420-16)*MM;
   const availH=(297-16-10)*MM; // 見出し分を差し引く
@@ -8564,26 +8563,19 @@ function printRyoinMap(guest){
   const title=escHtml(cfg.label)+(guest?'　お席のご案内':'　会場図');
   const tbDate=document.getElementById('tb-date');
   const dateStr=tbDate?escHtml(tbDate.textContent||''):'';
-  const w=window.open('','_blank');
-  if(!w){showToast('ポップアップがブロックされました。許可してから再度お試しください');return;}
-  w.document.open();
-  w.document.write(
-    '<!DOCTYPE html><html><head><meta charset="utf-8">'
-    +'<meta name="viewport" content="width=device-width,initial-scale=1">'
-    +'<title>'+title+'</title>'
-    +'<style>'
-    +varCss
-    +'*{box-sizing:border-box;margin:0;padding:0;print-color-adjust:exact;-webkit-print-color-adjust:exact;}'
-    +'html,body{background:#fff;font-family:"Hiragino Sans","Noto Sans JP",sans-serif;color:#1a1a18;}'
-    +'body{padding:8mm;}'
-    +'.bar{display:flex;gap:8px;margin-bottom:10px;}'
-    +'.bar button{padding:8px 16px;border-radius:8px;border:1px solid #2c4f7a;background:#2c4f7a;color:#fff;font-size:14px;font-weight:600;}'
-    +'.bar button.sub{background:#fff;color:#2c4f7a;}'
-    +'h2{font-size:16px;margin-bottom:2mm;height:8mm;line-height:8mm;}'
-    +'#map-outer{position:relative;overflow:hidden;width:'+(mapW*scale)+'px;height:'+(cfg.h*scale)+'px;}'
-    +'#map-inner{position:absolute;top:0;left:0;width:'+mapW+'px;height:'+cfg.h+'px;transform:scale('+scale+');transform-origin:top left;}'
+  // 共通の印刷画面で開く（A3・A4を選べて、用紙いっぱいに拡大・縮小）
+  openFitPrint({
+    key:guest?'ryoin_guest':'ryoin',
+    title:cfg.label+(guest?' お席のご案内':' 会場図'),
+    sizes:['A3L','A4L'],def:'A3L',
+    designWidth:mapW,
+    css:varCss
+      +'#fit{color:#1a1a18;font-family:"Hiragino Sans","Noto Sans JP",sans-serif;}'
+      +'#fit *{box-sizing:border-box;margin:0;padding:0;}'
+      +'#fit h2{font-size:16px;margin-bottom:6px;height:28px;line-height:28px;}'
+      +'#map-outer{position:relative;width:'+mapW+'px;height:'+cfg.h+'px;}'
+      +'#map-inner{position:absolute;top:0;left:0;width:'+mapW+'px;height:'+cfg.h+'px;}'
     +'#map-inner>div{border:1.5px solid #000;background:#fff!important;}'
-    // 黒のみ印刷向け：色を使わず線と文字で区別する
     +'#map-inner *{color:#000!important;box-shadow:none!important;}'
     +'#map-inner [data-tid]{background:#fff!important;border:1.5px solid #000!important;}'
     +'#map-inner [data-tid]:not([data-filled]){border:1px dashed #888!important;}'
@@ -8594,7 +8586,6 @@ function printRyoinMap(guest){
     +'#map-inner .rmap-pillar{background:repeating-linear-gradient(45deg,#fff 0 4px,#999 4px 5px)!important;border:1px solid #000;}'
     +'#map-inner .rmap-pillar span{background:#fff;padding:0 3px;}'
     +'#map-inner .rmap-entrance{background:#fff!important;border:1.5px solid #000!important;}'
-    // お客様用：部屋番号だけを大きく
     +'#map-inner .guest-table{display:flex!important;flex-direction:column;align-items:center;justify-content:center!important;gap:2px;background:#fff!important;border:2.5px solid #000!important;border-radius:10px;padding:4px!important;}'
     +'#map-inner .guest-table .gr{font-size:50px;font-weight:900;letter-spacing:-.01em;line-height:1;white-space:nowrap;display:flex;flex-direction:column;align-items:center;}'
     +'#map-inner .guest-table .gr span{font-size:14px;font-weight:700;margin:2px 0 0;letter-spacing:.2em;}'
@@ -8602,18 +8593,11 @@ function printRyoinMap(guest){
     +'#map-inner .guest-table.multi .gr{font-size:36px;flex-direction:row;align-items:baseline;}'
     +'#map-inner .guest-table.multi .gr span{font-size:12px;margin:0 0 0 2px;letter-spacing:0;}'
     +'#map-inner .guest-empty{background:#fff!important;border:1px dashed #bbb!important;}'
-    +(guest?'h2{font-size:22px;height:10mm;line-height:10mm;}':'')
-    +'@page{size:A3 landscape;margin:0;}'
-    +'@media print{.bar{display:none!important;}body{padding:8mm;}}'
-    +'</style>'
-    +'</head><body>'
-    +'<div class="bar"><button onclick="window.print()">🖨 印刷</button><button class="sub" onclick="window.close()">閉じる</button></div>'
-    +'<h2>'+title+(dateStr?'　'+dateStr:'')+'</h2>'
-    +'<div id="map-outer"><div id="map-inner">'+clone.outerHTML+'</div></div>'
-    +'<script>window.onload=function(){setTimeout(function(){window.print();},500);};<\/script>'
-    +'</body></html>'
-  );
-  w.document.close();
+    +(guest?'#fit h2{font-size:22px;height:10mm;line-height:10mm;}':'')
+      ,
+    bodyHtml:'<h2>'+title+(dateStr?'　'+dateStr:'')+'</h2>'
+      +'<div id="map-outer"><div id="map-inner">'+clone.outerHTML+'</div></div>',
+  });
 }
 // 印刷時にcanvasをページに合わせてスケール
 window.addEventListener('beforeprint',function(){
@@ -9226,11 +9210,8 @@ function _oshiCloseModal(){
 }
 
 function printOshinagaki(){
-  const html=_buildOshiHtml(true);
-  const win=window.open('','_blank','width=800,height=1000');
-  win.document.write(html);
-  win.document.close();
-  win.onload=function(){win.print();};
+  // 2枚並び（277mm幅）の作りのまま、選んだ用紙いっぱいに拡大・縮小する
+  openFitPrintDoc(_buildOshiHtml(true),{key:'oshi',title:'お品書き',sizes:['A4L','A3L'],def:'A4L',designWidth:Math.round(277*96/25.4)});
 }
 
 let _confirmCallback=null;
@@ -9293,26 +9274,15 @@ function renderCalendar(){
 function printMonthlySummary(){
   const title=document.getElementById('monthly-title').textContent;
   const bodyHtml=document.getElementById('monthly-body').innerHTML;
-  const win=window.open('','_blank','width=800,height=900');
-  if(!win)return;
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    +'<title>'+title+'</title>'
-    +'<style>'
-    +'body{font-family:sans-serif;padding:20px;color:#333;font-size:12px;}'
-    +'h1{font-size:16px;font-weight:700;margin-bottom:16px;color:#333;}'
-    +'@media print{'
-    +'  @page{size:A4;margin:10mm;}'
-    +'  button{display:none!important;}'
-    +'}'
-    +'</style>'
-    +'</head><body>'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'
-    +'<h1>'+title+'</h1>'
-    +'<button onclick="window.print()" style="padding:6px 16px;border-radius:20px;border:1px solid #2b6cb0;background:#e8f4f8;color:#2b6cb0;font-size:12px;font-weight:700;cursor:pointer;">🖨 印刷</button>'
-    +'</div>'
-    +bodyHtml
-    +'</body></html>');
-  win.document.close();
+  // 用紙の幅に合わせて拡大・縮小し、長い分は次のページへ続ける
+  openFitPrint({
+    key:'lunch_month',title:title,
+    sizes:['A4P','A3P','A4L','A3L'],def:'A4P',long:true,designWidth:720,
+    css:'#fit{color:#333;font-size:12px;padding:4px 8px;box-sizing:border-box;}#fit h1{font-size:18px;font-weight:700;margin:0 0 14px;}'
+      +':root{'+['--bg','--surface','--surface2','--border','--border2','--text','--t2','--t3','--green','--green-l','--amber','--amber-l','--red','--red-l','--blue','--blue-l','--r','--rl','--bg2'].map(function(v){return v+':'+(getComputedStyle(document.documentElement).getPropertyValue(v).trim()||'initial');}).join(';')+'}'
+      +'#fit button{display:none!important;}',
+    bodyHtml:'<h1>'+escHtml(title)+'</h1>'+bodyHtml,
+  });
 }
 function openMonthly(){
   document.getElementById('cal-overlay').classList.remove('open');
@@ -10152,7 +10122,7 @@ function _buildShiftStandalonePage(){
     +'</style></head><body>'
     +'<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:10;">'
     +'<h1>フロント　シフト表　'+SHIFT_YEAR+'年'+SHIFT_MONTH+'月</h1>'
-    +'<button onclick="window.print()" style="padding:6px 16px;border-radius:20px;border:1px solid #cbd5e1;background:none;font-size:12px;cursor:pointer;">🖨 印刷</button>'
+    +'<button onclick="if(window.opener&&!window.opener.closed&&window.opener.printShift){window.opener.printShift('+SHIFT_YEAR+','+SHIFT_MONTH+');}else{window.print();}" style="padding:6px 16px;border-radius:20px;border:1px solid #cbd5e1;background:none;font-size:12px;cursor:pointer;">🖨 印刷</button>'
     +'</div>'
     +'<div style="padding:10px 16px;background:#fff;border-bottom:1px solid #e2e8f0;">'
     +'<div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:600;">公休カウンター</div>'
@@ -10739,6 +10709,82 @@ function addShiftMember(){
 }
 
 // 印刷
+// ===== 共通の印刷画面（用紙を選んで、用紙に合わせて拡大・縮小する） =====
+// opts: {title, bodyHtml, css, sizes:['A3L','A4L',...], def:'A3L', designWidth:px, note}
+//  - 高さのある用紙（A3/A4/A5）：中身全体を1枚に収まるよう拡大・縮小
+//  - レシート（R72）や long:true の印刷：用紙の幅に合わせ、長い分は次のページへ続ける
+var PRINT_PAPERS={
+  A3L:{l:'A3 横',w:420,h:297,page:'A3 landscape'},
+  A3P:{l:'A3 縦',w:297,h:420,page:'A3 portrait'},
+  A4L:{l:'A4 横',w:297,h:210,page:'A4 landscape'},
+  A4P:{l:'A4 縦',w:210,h:297,page:'A4 portrait'},
+  A5L:{l:'A5 横',w:210,h:148,page:'A5 landscape'},
+  A5P:{l:'A5 縦',w:148,h:210,page:'A5 portrait'},
+  R72:{l:'レシート 72mm',w:72,h:0,page:'72mm auto',m:2},
+};
+function _fitPrintPageScript(){
+  window.setSize=function(key){
+    var P=O.papers[key];
+    var m=P.m!=null?P.m:8; // 余白（mm）
+    var long=O.long||!P.h;
+    document.getElementById('pagesize').textContent='@page{size:'+P.page+';margin:'+m+'mm;}';
+    O.sizes.forEach(function(k){var b=document.getElementById('b-'+k);if(b)b.className=k===key?'on':'';});
+    var MM=96/25.4;
+    var W=(P.w-m*2),H=P.h?(P.h-m*2):0;
+    var pg=document.getElementById('pg'),fit=document.getElementById('fit');
+    pg.style.width=W+'mm';
+    pg.style.height=long?'auto':H+'mm';
+    fit.style.zoom=1;
+    fit.style.width=O.designWidth+'px';
+    var natH=fit.scrollHeight;
+    var zw=(W*MM)/O.designWidth;
+    var z=long?zw:Math.min(zw,(H*MM-2)/natH);
+    fit.style.zoom=z;
+    try{localStorage.setItem('print_paper_'+O.key,key);}catch(e){}
+  };
+  var saved=null;try{saved=localStorage.getItem('print_paper_'+O.key);}catch(e){}
+  setSize(saved&&O.sizes.indexOf(saved)!==-1?saved:O.def);
+}
+function openFitPrint(opts){
+  var sizes=opts.sizes||['A4P'];
+  var O={key:opts.key||'doc',sizes:sizes,def:opts.def||sizes[0],designWidth:opts.designWidth||800,long:!!opts.long,papers:{}};
+  sizes.forEach(function(k){O.papers[k]=PRINT_PAPERS[k];});
+  var page='<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>'+escHtml(opts.title||'印刷')+'</title>'
+    +'<style id="pagesize"></style>'
+    +'<style>'
+    +'*{print-color-adjust:exact;-webkit-print-color-adjust:exact;}'
+    +'html,body{margin:0;padding:0;}'
+    +'body{background:#e5e7eb;font-family:"Hiragino Sans","Noto Sans JP","Meiryo",sans-serif;}'
+    +'.pbar{position:sticky;top:0;z-index:50;display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:#fff;border-bottom:1px solid #ddd;font-family:"Hiragino Sans","Noto Sans JP",sans-serif;}'
+    +'.pbar button{padding:7px 14px;border-radius:8px;border:1.5px solid #2c4f7a;background:#fff;color:#2c4f7a;font-size:13px;font-weight:700;cursor:pointer;}'
+    +'.pbar button.on{background:#2c4f7a;color:#fff;}'
+    +'.pbar .print{background:#2d5a3d;border-color:#2d5a3d;color:#fff;margin-left:auto;}'
+    +'#pg{background:#fff;margin:12px auto;box-shadow:0 2px 12px rgba(0,0,0,.15);overflow:hidden;}'
+    +'@media print{body{background:#fff;}.pbar{display:none!important;}#pg{margin:0;box-shadow:none;overflow:visible;}}'
+    +(opts.css||'')
+    +'</style></head><body>'
+    +'<div class="pbar"><span style="font-size:12px;font-weight:700;color:#555;">用紙</span>'
+    +sizes.map(function(k){return '<button type="button" id="b-'+k+'" onclick="setSize(\''+k+'\')">'+PRINT_PAPERS[k].l+'</button>';}).join('')
+    +'<button type="button" class="print" onclick="window.print()">🖨 印刷</button>'
+    +'<button type="button" onclick="window.close()">閉じる</button></div>'
+    +'<div id="pg"><div id="fit">'+opts.bodyHtml+'</div></div>'
+    +'<script>var O='+JSON.stringify(O).replace(/</g,'\\u003c')+';('+_fitPrintPageScript.toString()+')();<\/script>'
+    +'</body></html>';
+  var w=window.open('','_blank','width=1100,height=900');
+  if(!w){showToast('ポップアップがブロックされました。許可してから再度お試しください');return null;}
+  w.document.open();w.document.write(page);w.document.close();
+  return w;
+}
+// 完成済みのHTML文書（<html>…）を共通の印刷画面で開く。body の指定は中身（#fit）に付け替え、@page は外す
+function openFitPrintDoc(html,opts){
+  var css=(html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi)||[]).map(function(t){return t.replace(/<\/?style[^>]*>/gi,'');}).join('\n');
+  css=css.replace(/@page\s*\{[^}]*\}/g,'').replace(/(^|[},\s])body(\s*[{,])/g,'$1#fit$2').replace(/(^|[},\s])html(\s*[{,])/g,'$1#fit$2');
+  var m=html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  var body=(m?m[1]:html).replace(/<script[\s\S]*?<\/script>/gi,'');
+  return openFitPrint(Object.assign({},opts,{css:css+(opts.css||''),bodyHtml:body}));
+}
+
 // シフト印刷画面の中で動くプログラム（printShift() が印刷画面に渡す。D=シフトのデータ）
 // 用紙いっぱいに広げ、スタッフが多くて文字が小さくなりすぎるときはページを分ける
 function _shiftPrintPageScript(){
@@ -10812,7 +10858,12 @@ function _shiftPrintPageScript(){
   setSize('A3');
 }
 // シフト表の印刷：A3・A4（横）を選べて、用紙いっぱいに拡大する。勤務コード表も一緒に印刷
-function printShift(){
+function printShift(y,m){
+  // 別タブの画面から月を指定して呼ばれたときは、その月で印刷する
+  if(y&&m&&(y!==SHIFT_YEAR||m!==SHIFT_MONTH)){
+    var oy=SHIFT_YEAR,om=SHIFT_MONTH;SHIFT_YEAR=y;SHIFT_MONTH=m;
+    try{return printShift();}finally{SHIFT_YEAR=oy;SHIFT_MONTH=om;}
+  }
   var daysInMonth=new Date(SHIFT_YEAR,SHIFT_MONTH,0).getDate();
   var monthKey=SHIFT_YEAR+'_'+SHIFT_MONTH;
   var monthData=SHIFT_DATA[monthKey]||{};
