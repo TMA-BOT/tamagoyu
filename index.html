@@ -9104,6 +9104,10 @@ function printIceTally(ori){
   saveIceTally();
   var groups=_iceTallyParse(document.getElementById('ice-tally-text').value);
   if(!groups.length){showToast('商品が入力されていません');return;}
+  // 1枚に収まるよう、商品数に合わせて行の高さを決める（設計上の高さ：横 約770px／縦 約1100px、見出し・価格帯の帯・余裕を引く）
+  var nRows=0;groups.forEach(function(g){g.rows.forEach(function(r){nRows+=r.items.length;});});
+  var availH=(P?1100:770)*0.95-52-groups.length*42;
+  var rowH=Math.max(36,Math.min(P?110:90,Math.floor(availH/Math.max(1,nRows))));
   var h='<div class="it-h"><span class="it-t">'+escHtml(document.getElementById('ice-tally-title').value)+'</span><span class="it-d">日付：　　　月　　　日</span></div>';
   groups.forEach(function(g){
     if(g.price)h+='<div class="it-g">'+escHtml(g.price)+'</div>';
@@ -9126,9 +9130,10 @@ function printIceTally(ori){
     +'.it-t{font-size:26px;font-weight:700;}.it-d{font-size:16px;}'
     +'.it-g{background:#000;color:#fff;font-size:20px;font-weight:700;padding:3px 12px;margin-top:8px;}'
     +'.it-tb{width:100%;border-collapse:collapse;table-layout:fixed;}'
-    +'.it-tb td{border:2px solid #000;padding:0 8px;vertical-align:middle;height:'+(P?96:72)+'px;}'
+    +'.it-tb td{border:2px solid #000;padding:0 8px;vertical-align:middle;height:'+rowH+'px;}'
     +'.it-mk{font-size:16px;font-weight:700;}.it-nm{font-size:18px;font-weight:700;}'
-    +'.it-tt{font-size:12px;vertical-align:top!important;padding-top:4px!important;}';
+    +'.it-tt{font-size:12px;vertical-align:top!important;padding-top:4px!important;}'
+    +'.it-tb{page-break-inside:avoid;}@media print{#pg{overflow:hidden!important;}}';
   openFitPrint({title:document.getElementById('ice-tally-title').value||'印刷',bodyHtml:h,css:css,sizes:P?['A4P','A3P']:['A4L','A3L'],def:P?'A4P':'A4L',designWidth:P?760:1120,key:P?'icetally_p':'icetally_l'});
 }
 
