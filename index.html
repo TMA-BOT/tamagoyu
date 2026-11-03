@@ -9102,7 +9102,7 @@ function printIceTally(){
   saveIceTally();
   var groups=_iceTallyParse(document.getElementById('ice-tally-text').value);
   if(!groups.length){showToast('商品が入力されていません');return;}
-  var h='<div class="it-h"><span class="it-t">'+escHtml(document.getElementById('ice-tally-title').value)+'</span><span class="it-d">日付：　　　月　　　日　　担当：　　　　　　</span></div>';
+  var h='<div class="it-h"><span class="it-t">'+escHtml(document.getElementById('ice-tally-title').value)+'</span><span class="it-d">日付：　　　月　　　日</span></div>';
   groups.forEach(function(g){
     if(g.price)h+='<div class="it-g">'+escHtml(g.price)+'</div>';
     h+='<table class="it-tb"><colgroup><col style="width:150px"><col style="width:250px"><col><col style="width:100px"></colgroup>';
