@@ -666,7 +666,7 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
             <div style="font-size:28px;">🍦</div>
             <div>
               <div style="font-size:14px;font-weight:700;margin-bottom:2px;">POP・カウント表作成</div>
-              <div style="font-size:12px;color:var(--t2);">タイトル・商品・価格を編集してA4で印刷（正の字カウント用）</div>
+              <div style="font-size:12px;color:var(--t2);">タイトル・商品・価格を編集してA4横で印刷（正の字カウント用）</div>
             </div>
             <div style="margin-left:auto;font-size:18px;color:var(--t3);">›</div>
           </div>
@@ -692,7 +692,7 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
         </div>
         <textarea id="ice-tally-text" oninput="saveIceTally()" style="width:100%;min-height:260px;box-sizing:border-box;padding:10px;border:.5px solid var(--border2);border-radius:8px;font-size:14px;line-height:1.7;font-family:inherit;background:var(--surface);color:var(--t1);"></textarea>
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
-          <button onclick="printIceTally()" style="flex:1;min-width:160px;padding:12px;border-radius:10px;border:none;background:#2d5a3d;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">🖨 A4で印刷</button>
+          <button onclick="printIceTally()" style="flex:1;min-width:160px;padding:12px;border-radius:10px;border:none;background:#2d5a3d;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">🖨 A4横で印刷</button>
           <button onclick="resetIceTally()" style="padding:12px 16px;border-radius:10px;border:.5px solid var(--border2);background:none;font-size:13px;cursor:pointer;color:var(--t2);">初期に戻す</button>
         </div>
       </div>
@@ -9105,7 +9105,7 @@ function printIceTally(){
   var h='<div class="it-h"><span class="it-t">'+escHtml(document.getElementById('ice-tally-title').value)+'</span><span class="it-d">日付：　　　月　　　日　　担当：　　　　　　</span></div>';
   groups.forEach(function(g){
     if(g.price)h+='<div class="it-g">'+escHtml(g.price)+'</div>';
-    h+='<table class="it-tb"><colgroup><col style="width:120px"><col style="width:190px"><col><col style="width:84px"></colgroup>';
+    h+='<table class="it-tb"><colgroup><col style="width:150px"><col style="width:250px"><col><col style="width:100px"></colgroup>';
     g.rows.forEach(function(r){
       r.items.forEach(function(it,idx){
         h+='<tr>';
@@ -9121,13 +9121,13 @@ function printIceTally(){
     h+='</table>';
   });
   var css='.it-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}'
-    +'.it-t{font-size:24px;font-weight:700;}.it-d{font-size:15px;}'
+    +'.it-t{font-size:26px;font-weight:700;}.it-d{font-size:16px;}'
     +'.it-g{background:#000;color:#fff;font-size:20px;font-weight:700;padding:3px 12px;margin-top:8px;}'
     +'.it-tb{width:100%;border-collapse:collapse;table-layout:fixed;}'
-    +'.it-tb td{border:2px solid #000;padding:0 8px;vertical-align:middle;height:96px;}'
+    +'.it-tb td{border:2px solid #000;padding:0 8px;vertical-align:middle;height:72px;}'
     +'.it-mk{font-size:16px;font-weight:700;}.it-nm{font-size:18px;font-weight:700;}'
     +'.it-tt{font-size:12px;vertical-align:top!important;padding-top:4px!important;}';
-  openFitPrint({title:document.getElementById('ice-tally-title').value||'印刷',bodyHtml:h,css:css,sizes:['A4P','A4L','A3P'],def:'A4P',designWidth:760,key:'icetally'});
+  openFitPrint({title:document.getElementById('ice-tally-title').value||'印刷',bodyHtml:h,css:css,sizes:['A4L','A4P','A3L'],def:'A4L',designWidth:1120,key:'icetally_l'});
 }
 
 // ===== お品書き機能 =====
