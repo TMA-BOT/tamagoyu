@@ -661,6 +661,38 @@ html,body{height:100%;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;back
             <div style="margin-left:auto;font-size:18px;color:var(--t3);">›</div>
           </div>
         </div>
+        <div class="card" style="cursor:pointer;margin-top:10px;" onclick="openIceTally()">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:28px;">🍦</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;margin-bottom:2px;">アイス手売り カウント表</div>
+              <div style="font-size:12px;color:var(--t2);">正の字でカウントする用紙をA4で印刷（商品・価格は編集可）</div>
+            </div>
+            <div style="margin-left:auto;font-size:18px;color:var(--t3);">›</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- アイス手売りカウント表モーダル -->
+<div id="ice-tally-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;overflow-y:auto;">
+  <div style="min-height:100%;display:flex;flex-direction:column;align-items:center;padding:16px 12px 40px;">
+    <div style="width:100%;max-width:640px;background:var(--surface);border-radius:var(--rl);overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:.5px solid var(--border);">
+        <div style="font-size:17px;font-weight:700;">🍦 アイス手売り カウント表</div>
+        <button onclick="closeIceTally()" style="width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:none;font-size:18px;cursor:pointer;color:var(--t2);">×</button>
+      </div>
+      <div style="padding:16px 20px;">
+        <div style="font-size:12px;color:var(--t2);margin-bottom:8px;line-height:1.6;">
+          書き方：「250円」の行で価格の区切り、その下に「メーカー名：商品／商品／商品」と1行ずつ書きます。メーカー名なしで商品名だけの行もOK。編集内容はこの端末に自動で保存されます。
+        </div>
+        <textarea id="ice-tally-text" oninput="saveIceTally()" style="width:100%;min-height:260px;box-sizing:border-box;padding:10px;border:.5px solid var(--border2);border-radius:8px;font-size:14px;line-height:1.7;font-family:inherit;background:var(--surface);color:var(--t1);"></textarea>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <button onclick="printIceTally()" style="flex:1;min-width:160px;padding:12px;border-radius:10px;border:none;background:#2d5a3d;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">🖨 A4で印刷</button>
+          <button onclick="resetIceTally()" style="padding:12px 16px;border-radius:10px;border:.5px solid var(--border2);background:none;font-size:13px;cursor:pointer;color:var(--t2);">初期に戻す</button>
+        </div>
       </div>
     </div>
   </div>
@@ -9018,6 +9050,72 @@ function sw(name,clicked){
 function openNumberCounter(){
   const dk=getDateKey(selectedDate);
   window.open('number_counter.html?date='+dk,'_blank');
+}
+
+// ===== アイス手売りカウント表（自販機故障時などに正の字で数える用紙） =====
+// 編集内容は localStorage('ice_tally_text') に保存。書式：「250円」の行＝価格の区切り、「メーカー：商品／商品」の行＝商品
+var ICE_TALLY_DEFAULT='250円\nモナ王：バニラ／粒入りあずき／チョコチップチョコ\nクーリッシュ：バニラ／カルピス\n\n350円\nレディーボーデン：アーモンドチョコレートバー／チョコストロベリーバー／チョコレートボール／クッキーサンド';
+function _iceTallyText(){
+  var t=null;try{t=localStorage.getItem('ice_tally_text');}catch(e){}
+  return t||ICE_TALLY_DEFAULT;
+}
+function openIceTally(){
+  document.getElementById('ice-tally-text').value=_iceTallyText();
+  document.getElementById('ice-tally-modal').style.display='block';
+}
+function closeIceTally(){document.getElementById('ice-tally-modal').style.display='none';}
+function saveIceTally(){
+  try{localStorage.setItem('ice_tally_text',document.getElementById('ice-tally-text').value);}catch(e){}
+}
+function resetIceTally(){
+  if(!confirm('商品リストを初期の内容に戻しますか？'))return;
+  try{localStorage.removeItem('ice_tally_text');}catch(e){}
+  document.getElementById('ice-tally-text').value=ICE_TALLY_DEFAULT;
+}
+function _iceTallyParse(text){
+  var groups=[],cur=null;
+  String(text).split(/\r?\n/).forEach(function(raw){
+    var line=raw.trim();
+    if(!line)return;
+    if(/^[0-9０-９,，]+\s*円$/.test(line)){cur={price:line,rows:[]};groups.push(cur);return;}
+    if(!cur){cur={price:'',rows:[]};groups.push(cur);}
+    var i=line.search(/[:：]/),maker='',rest=line;
+    if(i>=0){maker=line.slice(0,i).trim();rest=line.slice(i+1);}
+    var items=rest.split(/[\/／、,，]/).map(function(s){return s.trim();}).filter(Boolean);
+    if(items.length)cur.rows.push({maker:maker,items:items});
+  });
+  return groups;
+}
+function printIceTally(){
+  saveIceTally();
+  var groups=_iceTallyParse(document.getElementById('ice-tally-text').value);
+  if(!groups.length){showToast('商品が入力されていません');return;}
+  var h='<div class="it-h"><span class="it-t">アイス販売カウント表</span><span class="it-d">日付：　　　月　　　日　　担当：　　　　　　</span></div>';
+  groups.forEach(function(g){
+    if(g.price)h+='<div class="it-g">'+escHtml(g.price)+'</div>';
+    h+='<table class="it-tb"><colgroup><col style="width:120px"><col style="width:190px"><col><col style="width:84px"></colgroup>';
+    g.rows.forEach(function(r){
+      r.items.forEach(function(it,idx){
+        h+='<tr>';
+        if(r.maker){
+          if(idx===0)h+='<td class="it-mk" rowspan="'+r.items.length+'">'+escHtml(r.maker)+'</td>';
+          h+='<td class="it-nm">'+escHtml(it)+'</td>';
+        }else{
+          h+='<td class="it-nm" colspan="2">'+escHtml(it)+'</td>';
+        }
+        h+='<td class="it-ty"></td><td class="it-tt">合計</td></tr>';
+      });
+    });
+    h+='</table>';
+  });
+  var css='.it-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}'
+    +'.it-t{font-size:24px;font-weight:700;}.it-d{font-size:15px;}'
+    +'.it-g{background:#000;color:#fff;font-size:20px;font-weight:700;padding:3px 12px;margin-top:8px;}'
+    +'.it-tb{width:100%;border-collapse:collapse;table-layout:fixed;}'
+    +'.it-tb td{border:2px solid #000;padding:0 8px;vertical-align:middle;height:96px;}'
+    +'.it-mk{font-size:16px;font-weight:700;}.it-nm{font-size:18px;font-weight:700;}'
+    +'.it-tt{font-size:12px;vertical-align:top!important;padding-top:4px!important;}';
+  openFitPrint({title:'アイス販売カウント表',bodyHtml:h,css:css,sizes:['A4P','A4L','A3P'],def:'A4P',designWidth:760,key:'icetally'});
 }
 
 // ===== お品書き機能 =====
