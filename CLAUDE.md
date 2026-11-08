@@ -76,6 +76,14 @@ const fs = lu.frontStatus || (lu.roomNo ? 'room' : (lu.frontPaid!==false ? 'paid
 その場合でも `roomNo`（部屋番号）が設定されていれば部屋付けとみなす。
 さらに `roomNo` もなければ `frontPaid` で判定する3段フォールバック。
 
+### 注文から提供までの経過時間
+- 新しく保存した伝票に `orderedAt`（注文時刻・ミリ秒）、「提供済」にしたときに `servedAt` を記録（未提供に戻すと消す）
+- 編集して保存しても `orderedAt`・`served`・`servedAt` は引き継ぐ（以前は編集すると提供済が消えていた）
+- 伝票カードの番号の横に経過時間（`lunchTimerHtml()`、`.lunch-timer`）。1秒ごとに `_tickLunchTimers()` で更新。提供済は「✓ ◯分で提供」で止まる
+- `LUNCH_ALERT_MIN`（10分）を過ぎた未提供の伝票は赤くし、音（`playLunchAlert()`、3回鳴る）とお知らせを1回だけ出す（`_lunchAlerted`）。同時に何件でも音は1回
+- 過去の日を表示しているときと、3時間以上たった伝票では鳴らさない。`orderedAt` のない古い伝票は時間を出さない
+- 音は最初に画面を触ったときに準備する（iPhone・iPad対策、`unlockAudio()`）
+
 ### ランチ集計パネルの構成
 1. **通常集計**（部屋付けを除外）
    - 総人数・総売上・伝票数・会計済件数・メニュー別数量

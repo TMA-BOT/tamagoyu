@@ -1032,6 +1032,90 @@ function playPinpon(){
   }catch(e){console.log('音声再生エラー:',e);}
 }
 
+// ===== ランチ伝票の経過時間（注文から提供まで） =====
+const LUNCH_ALERT_MIN=10;          // この分数を過ぎたら赤くして音を鳴らす
+const _lunchAlerted=new Set();     // 音を鳴らした伝票（同じ伝票で何度も鳴らさない）
+function _lunchTimerKey(lu){return lu.orderedAt+'_'+(lu.ticketNo||'');}
+function _fmtElapsed(ms){
+  const sec=Math.max(0,Math.floor(ms/1000));
+  if(sec>=3*3600)return '3時間以上';
+  const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s2=sec%60;
+  return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s2).padStart(2,'0');
+}
+let _lunchTickQueued=false;
+function lunchTimerHtml(lu){
+  if(!lu.orderedAt)return '';
+  // 描いた直後に色を付ける
+  if(!_lunchTickQueued){_lunchTickQueued=true;setTimeout(function(){_lunchTickQueued=false;_tickLunchTimers();},0);}
+  return '<span class="lunch-timer" data-ordered="'+lu.orderedAt+'" data-served="'+(lu.served&&lu.servedAt?lu.servedAt:'')+'" data-isserved="'+(lu.served?1:0)+'" style="font-size:14px;font-weight:800;padding:2px 9px;border-radius:20px;white-space:nowrap;">'+_lunchTimerText(lu.orderedAt,lu.served,lu.servedAt)+'</span>';
+}
+function _lunchTimerText(orderedAt,served,servedAt){
+  if(served){
+    if(!servedAt)return '✓ 提供済';
+    const min=Math.max(0,Math.round((servedAt-orderedAt)/60000));
+    return '✓ '+min+'分で提供';
+  }
+  return '⏱ '+_fmtElapsed(Date.now()-orderedAt);
+}
+function _lunchTimerStyle(el,orderedAt,served,servedAt){
+  const ms=(served&&servedAt?servedAt:Date.now())-orderedAt;
+  const over=ms>=LUNCH_ALERT_MIN*60000;
+  if(served){
+    el.style.background=over?'var(--red-l)':'var(--green-l)';el.style.color=over?'var(--red)':'var(--green)';el.style.border='none';
+  } else if(over){
+    el.style.background='var(--red)';el.style.color='#fff';el.style.border='none';
+  } else {
+    el.style.background='#fff';el.style.color='var(--text)';el.style.border='1.5px solid var(--border2)';
+  }
+}
+function _isTodaySelected(){
+  const t=new Date();
+  return selectedDate&&selectedDate.getFullYear()===t.getFullYear()&&selectedDate.getMonth()===t.getMonth()&&selectedDate.getDate()===t.getDate();
+}
+// 10分を過ぎた音（通常の通知音と区別できるよう3回鳴らす）
+function playLunchAlert(){
+  try{
+    if(!_audioCtx)_audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(_audioCtx.state==='suspended')_audioCtx.resume();
+    [0,0.28,0.56].forEach(function(t){
+      const o=_audioCtx.createOscillator(),g=_audioCtx.createGain();
+      o.connect(g);g.connect(_audioCtx.destination);
+      o.type='square';
+      o.frequency.setValueAtTime(988,_audioCtx.currentTime+t);
+      g.gain.setValueAtTime(0,_audioCtx.currentTime+t);
+      g.gain.linearRampToValueAtTime(0.25,_audioCtx.currentTime+t+0.01);
+      g.gain.linearRampToValueAtTime(0,_audioCtx.currentTime+t+0.2);
+      o.start(_audioCtx.currentTime+t);o.stop(_audioCtx.currentTime+t+0.25);
+    });
+  }catch(e){console.log('音声再生エラー:',e);}
+}
+// 1秒ごとに経過時間を更新し、10分を過ぎた未提供の伝票があれば音とお知らせ
+function _tickLunchTimers(){
+  document.querySelectorAll('.lunch-timer').forEach(function(el){
+    const o=parseInt(el.dataset.ordered),served=el.dataset.isserved==='1',sa=parseInt(el.dataset.served)||null;
+    el.textContent=_lunchTimerText(o,served,sa);
+    _lunchTimerStyle(el,o,served,sa);
+  });
+  if(!_isTodaySelected())return; // 過去の日を見ているときは鳴らさない
+  const now=Date.now();
+  const hit=[];
+  (LUNCHES||[]).forEach(function(lu){
+    if(!lu.orderedAt||lu.served)return;
+    const ms=now-lu.orderedAt;
+    if(ms<LUNCH_ALERT_MIN*60000||ms>3*3600000)return;
+    const key=_lunchTimerKey(lu);
+    if(_lunchAlerted.has(key))return;
+    _lunchAlerted.add(key);
+    hit.push('No.'+(lu.ticketNo||''));
+  });
+  if(hit.length){ // 同時に何件あっても音は1回
+    playLunchAlert();
+    showToast('⏱ ランチ '+hit.join('・')+' 注文から'+LUNCH_ALERT_MIN+'分経過（まだ提供されていません）');
+  }
+}
+setInterval(_tickLunchTimers,1000);
+// 音を鳴らせるよう、最初に画面を触ったときに音声を準備しておく（iPhone・iPad対策）
+document.addEventListener('pointerdown',function _ua(){unlockAudio();document.removeEventListener('pointerdown',_ua);},{once:true});
 function checkLunchNotify(newLunches){
   if(!_notifyEnabled)return;
   const newCount=(newLunches||[]).length;
@@ -3737,9 +3821,10 @@ function buildLunchList(){
     const cardBorderColor=isRoom&&isDelivery?'var(--amber)':isRoom?'var(--blue)':isDelivery?'var(--amber)':!frontPaid?'var(--red)':(!venuePaid&&hasVenue)?'var(--amber)':'var(--border)';
     gridHtml+='<div class="lcard" style="border-color:'+cardBorderColor+';'+(cardBg?'background:'+cardBg+';':'')+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
-      +'<div><div style="display:flex;align-items:baseline;gap:10px;">'
-      +'<span style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:1px;line-height:1.1;">No. '+(lu.ticketNo||i+1)+'</span>'
+      +'<div><div style="display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;">'
+      +'<span style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:1px;line-height:1.1;white-space:nowrap;">No. '+(lu.ticketNo||i+1)+'</span>'
       +(lu.wishTime?'<span style="font-size:15px;font-weight:700;color:var(--amber);">⏰ '+lu.wishTime+' 予定</span>':'')
+      +lunchTimerHtml(lu)
       +'</div>'
       +'<div class="lcard-charge">¥'+charge.toLocaleString()+'</div>'
       +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:2px;">'
@@ -4292,6 +4377,12 @@ function saveLunch(){
   const wishTimeEl=document.getElementById('lm-wish-time');
   const deliveryRoomEl=document.getElementById('lm-delivery-room');
   const lu={ticketNo:ticketNo,pax:parseInt(document.getElementById('lm-pax').value)||0,wishTime:wishTimeEl?wishTimeEl.value:'',deliveryRoom:deliveryRoomEl?deliveryRoomEl.value:'',foodItems:collectLunchItems('lm-food-items'),drinkItems:collectLunchItems('lm-drink-items'),charge:parseInt(document.getElementById('lm-charge').value)||0,frontStatus:frontStatus,roomNo:roomNo,frontPaid:frontStatus==='paid',venuePaid:document.getElementById('lm-venue-paid').value==='1'};
+  // 注文時刻（新しく保存したとき）。編集のときは注文時刻・提供済・提供時刻を引き継ぐ
+  if(isNew){lu.orderedAt=Date.now();lu.served=false;lu.servedAt=null;}
+  else{
+    const old=LUNCHES[parseInt(idx)]||{};
+    lu.orderedAt=old.orderedAt||null;lu.served=!!old.served;lu.servedAt=old.servedAt||null;
+  }
   if(isNew)LUNCHES.push(lu);else LUNCHES[parseInt(idx)]=lu;
   _lastLunchCount=LUNCHES.length;// 自分の追加は通知しない
   document.getElementById('lunch-modal-bg').style.display='none';buildLunchList();pushData();
@@ -4317,6 +4408,8 @@ function deleteLunch(){
 function toggleLunchServed(idx){
   if(!LUNCHES[idx])return;
   LUNCHES[idx].served=!LUNCHES[idx].served;
+  // 提供した時刻を記録（未提供に戻したら消す）
+  LUNCHES[idx].servedAt=LUNCHES[idx].served?Date.now():null;
   pushData();buildLunchList();
   showToast(LUNCHES[idx].served?'提供済にしました':'未提供に戻しました');
 }
