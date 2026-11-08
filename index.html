@@ -1150,8 +1150,13 @@ function _tickLunchTimers(){
   }
 }
 setInterval(_tickLunchTimers,1000);
-// 音を鳴らせるよう、最初に画面を触ったときに音声を準備しておく（iPhone・iPad対策）
-document.addEventListener('pointerdown',function _ua(){unlockAudio();document.removeEventListener('pointerdown',_ua);},{once:true});
+// 音を鳴らせるよう、画面をタッチしたときに音声を準備しておく（iPhone・iPad対策）
+// タッチは「指を離したとき」でないと音の許可が下りないので touchend / click で行う。
+// 別のアプリから戻って音が止まっていたときも、次のタッチで鳴る状態に戻す
+function _ensureAudio(){if(!_audioCtx||_audioCtx.state!=='running')unlockAudio();}
+document.addEventListener('touchend',_ensureAudio,{passive:true});
+document.addEventListener('click',_ensureAudio);
+document.addEventListener('keydown',_ensureAudio);
 // 日付のデータを読み込んだ直後は、すでにある伝票を「新しい注文」として鳴らさない
 let _lunchNotifyPrimed=false;
 function checkLunchNotify(newLunches){

@@ -84,7 +84,7 @@ const fs = lu.frontStatus || (lu.roomNo ? 'room' : (lu.frontPaid!==false ? 'paid
 - `LUNCH_ALERT_MIN`（10分）を過ぎた未提供の伝票は赤くし、お知らせを1回だけ出す（`_lunchAlerted`）。音（`playLunchAlert()`、3回鳴る）は「🔔 通知ON」の端末だけ。同時に何件でも音は1回
 - 通知のオン・オフは端末ごとに `localStorage`（`lunch_notify_on`）に覚える。日付のデータを読み込んだ直後の伝票は新しい注文として鳴らさない（`_lunchNotifyPrimed`）
 - 過去の日を表示しているときと、3時間以上たった伝票では鳴らさない。`orderedAt` のない古い伝票は時間を出さない
-- 音は最初に画面を触ったときに準備する（iPhone・iPad対策、`unlockAudio()`）
+- 音は画面をタッチしたときに準備する（`_ensureAudio()`。タッチは指を離したときでないと許可が下りないので `touchend`/`click` で行う。止まっていたら次のタッチで戻す）
 
 ### ランチ集計パネルの構成
 1. **通常集計**（部屋付けを除外）
