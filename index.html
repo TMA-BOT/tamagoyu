@@ -3145,13 +3145,13 @@ let DRINK_MENU=[
 const BOTTLE_BEER_BRANDS=['アサヒ','キリン'];
 function makeLunchItemRow(type,item){
   const menus=type==='food'?FOOD_MENU:DRINK_MENU;
-  const opts=menus.map(function(m){return '<option value="'+m.name+'" data-price="'+m.price+'" data-hasopts="'+(m.hasOptions?'1':'0')+'" data-hassize="'+(m.hasSize?'1':'0')+'" data-hasbrand="'+(m.hasBrand?'1':'0')+'"'+(item&&item.name===m.name?' selected':'')+'>'+m.name+' ¥'+m.price.toLocaleString()+'</option>';}).join('');
+  const opts=menus.map(function(m){return '<option value="'+m.name+'" data-price="'+m.price+'" data-hasopts="'+(isOomoriMenu(m)?'1':'0')+'" data-hassize="'+(m.hasSize?'1':'0')+'" data-hasbrand="'+(m.hasBrand?'1':'0')+'"'+(item&&item.name===m.name?' selected':'')+'>'+m.name+' ¥'+m.price.toLocaleString()+'</option>';}).join('');
   const qty=item?item.qty:1;
   const omakase=item?item.omakase:false;
   const nigiri=item?item.nigiri:false;
   const onigiriFillings=item&&item.onigiriFillings?item.onigiriFillings:['肉味噌','大葉'];
   const selectedMenu=item?menus.find(function(m){return m.name===item.name;}):null;
-  const showOpts=type==='food'&&selectedMenu&&selectedMenu.hasOptions;
+  const showOpts=type==='food'&&selectedMenu&&isOomoriMenu(selectedMenu);
   const showOnigiri=type==='food'&&selectedMenu&&selectedMenu.hasOnigiri;
   const showSize=type==='drink'&&selectedMenu&&selectedMenu.hasSize;
   const showBrand=type==='drink'&&selectedMenu&&selectedMenu.hasBrand;
@@ -3171,16 +3171,7 @@ function makeLunchItemRow(type,item){
     +'</div>'
     +'</div>':'';
   const curOpt=item?(item.omakaseQty>0&&item.nigiriQty>0?'both':item.omakaseQty>0?'omakase':item.nigiriQty>0?'nigiri':'normal'):'normal';
-  const optsHtml=showOpts?
-    '<div style="display:flex;gap:4px;flex-wrap:wrap;padding:6px 8px;background:var(--surface2);border-radius:var(--r);margin-top:4px;">'
-    +['normal','omakase'].map(function(o){
-      const labels={normal:'通常',omakase:'大盛 +¥200'};
-      const active=curOpt===o;
-      return '<button type="button" class="lm-opt-btn" data-opt="'+o+'" onclick="selectLunchOpt(this,\''+o+'\')" style="padding:5px 10px;border-radius:20px;border:1.5px solid '+(active?'var(--green)':'var(--border2)')+';background:'+(active?'var(--green)':'none')+';color:'+(active?'#fff':'var(--t2)')+';font-size:11px;font-weight:700;cursor:pointer;">'+labels[o]+'</button>';
-    }).join('')
-    +'<span class="lm-omakase-qty" style="display:none;">'+((item&&item.omakaseQty)||0)+'</span>'
-    +'<span class="lm-nigiri-qty" style="display:none;">'+((item&&item.nigiriQty)||0)+'</span>'
-    +'</div>':'';
+  const optsHtml=showOpts?oomoriHtml(qty,(item&&item.omakaseQty)||0):'';
   const curSize=item&&item.size?item.size:'single';
   const sizeHtml=showSize?
     '<div style="display:flex;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:var(--r);margin-top:4px;">'
@@ -3224,15 +3215,7 @@ function onFoodSelectChange(sel){
   const optsDiv=row.querySelector('.lm-opts');
   if(optsDiv){
     if(hasOpts){
-      optsDiv.innerHTML='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:6px 8px;background:var(--surface2);border-radius:var(--r);margin-top:4px;">'
-        +['normal','omakase'].map(function(o){
-          const labels={normal:'通常',omakase:'大盛 +¥200'};
-          const active=o==='normal';
-          return '<button type="button" class="lm-opt-btn" data-opt="'+o+'" onclick="selectLunchOpt(this,\''+o+'\')" style="padding:5px 10px;border-radius:20px;border:1.5px solid '+(active?'var(--green)':'var(--border2)')+';background:'+(active?'var(--green)':'none')+';color:'+(active?'#fff':'var(--t2)')+';font-size:11px;font-weight:700;cursor:pointer;">'+labels[o]+'</button>';
-        }).join('')
-        +'<span class="lm-omakase-qty" style="display:none;">0</span>'
-        +'<span class="lm-nigiri-qty" style="display:none;">0</span>'
-        +'</div>';
+      optsDiv.innerHTML=oomoriHtml(parseInt((row.querySelector('.lm-qty')||{}).textContent)||1,0);
     } else {
       optsDiv.innerHTML='';
     }
@@ -3311,6 +3294,53 @@ function removeLunchItem(btn){btn.closest('[data-type]').remove();calcLunchTotal
 function lunchOptChange(btn,type,delta){// 後方互換のため残す
   calcLunchTotal();
 }
+// ===== 大盛り（+¥200） =====
+// 大盛り対応のメニュー：メニュー管理で印を付けたもの。印が未設定でも麺類（蕎麦・うどん等）は大盛り対応とみなす
+const OOMORI_NOODLE_RE=/蕎麦|そば|ソバ|うどん|ウドン|饂飩|ラーメン|らーめん|麺/;
+function isOomoriMenu(m){
+  if(!m)return false;
+  if(m.hasOptions===true)return true;
+  if(m.hasOptions===false)return false; // メニュー管理で外したもの
+  return OOMORI_NOODLE_RE.test(m.name||'');
+}
+// 伝票の行の大盛り欄：チェックマーク＋（数量が2つ以上なら）うち大盛りの個数
+function oomoriHtml(qty,oq){
+  qty=qty||1;oq=Math.min(oq||0,qty);
+  const on=oq>0;
+  return '<div class="lm-oomori" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 8px;background:'+(on?'#fff7ed':'var(--surface2)')+';border-radius:var(--r);margin-top:4px;">'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:'+(on?'#c2410c':'var(--t2)')+';cursor:pointer;">'
+    +'<input type="checkbox" class="lm-oomori-chk"'+(on?' checked':'')+' onchange="toggleOomori(this)" style="width:20px;height:20px;accent-color:#ea580c;cursor:pointer;"> 大盛り（+¥200）</label>'
+    +'<span class="lm-oomori-cnt" style="display:'+(on&&qty>1?'flex':'none')+';align-items:center;gap:4px;font-size:12px;color:#c2410c;">うち'
+    +'<button type="button" onclick="oomoriCount(this,-1)" style="width:24px;height:24px;border-radius:50%;border:.5px solid #fdba74;background:#fff;font-size:14px;cursor:pointer;">－</button>'
+    +'<b class="lm-omakase-qty" style="min-width:16px;text-align:center;font-size:14px;">'+oq+'</b>'
+    +'<button type="button" onclick="oomoriCount(this,1)" style="width:24px;height:24px;border-radius:50%;border:.5px solid #fdba74;background:#fff;font-size:14px;cursor:pointer;">＋</button>個が大盛り</span>'
+    +'<span class="lm-nigiri-qty" style="display:none;">0</span>'
+    +'</div>';
+}
+function _oomoriRedraw(row,qty,oq){
+  const d=row.querySelector('.lm-opts');
+  if(d&&row.querySelector('.lm-oomori'))d.innerHTML=oomoriHtml(qty,oq);
+}
+function toggleOomori(chk){
+  const row=chk.closest('[data-type]');if(!row)return;
+  const qty=parseInt((row.querySelector('.lm-qty')||{}).textContent)||1;
+  _oomoriRedraw(row,qty,chk.checked?qty:0); // チェックしたら全部大盛り（個数はあとで変えられる）
+  calcLunchTotal();
+}
+function oomoriCount(btn,dir){
+  const row=btn.closest('[data-type]');if(!row)return;
+  const qty=parseInt((row.querySelector('.lm-qty')||{}).textContent)||1;
+  const cur=parseInt((row.querySelector('.lm-omakase-qty')||{}).textContent)||0;
+  _oomoriRedraw(row,qty,Math.max(1,Math.min(qty,cur+dir)));
+  calcLunchTotal();
+}
+// 数量を変えたとき：全部大盛りなら全部のまま、一部なら数量を超えないようにする
+function _oomoriSync(row,oldQty,newQty){
+  if(!row.querySelector('.lm-oomori'))return;
+  const cur=parseInt((row.querySelector('.lm-omakase-qty')||{}).textContent)||0;
+  if(!cur){_oomoriRedraw(row,newQty,0);return;}
+  _oomoriRedraw(row,newQty,cur>=oldQty?newQty:Math.min(cur,newQty));
+}
 function selectLunchOpt(btn,opt){
   const row=btn.closest('[data-type]');if(!row)return;
   const qty=parseInt((row.querySelector('.lm-qty')||{}).textContent)||1;
@@ -3333,12 +3363,9 @@ function lunchQtyChange(btn,dir){
   let v=parseInt(q.textContent)||1;
   v=Math.max(1,v+dir);
   q.textContent=v;
-  // アクティブなオプションに合わせて数量を更新
+  // 大盛りにしているときは、大盛りの個数を数量に合わせる（全部大盛りだったら全部のまま）
   const row=btn.closest('[data-type]');
-  if(row){
-    const activeBtn=row.querySelector('.lm-opt-btn[style*="var(--green)"]');
-    if(activeBtn)selectLunchOpt(activeBtn,activeBtn.dataset.opt);
-  }
+  if(row)_oomoriSync(row,v-dir,v);
   calcLunchTotal();
 }
 function calcLunchTotal(){
@@ -4231,7 +4258,7 @@ function openMenuManager(){
           const optsWrap=document.createElement('div');
           optsWrap.style.cssText='display:flex;align-items:center;gap:4px;padding:2px 0;';
           const optsChk=document.createElement('input');
-          optsChk.type='checkbox';optsChk.checked=!!m.hasOptions;
+          optsChk.type='checkbox';optsChk.checked=isOomoriMenu(m);
           optsChk.style.cssText='width:14px;height:14px;accent-color:var(--green);cursor:pointer;';
           (function(idx){optsChk.addEventListener('change',function(){
             menu[idx].hasOptions=this.checked;
@@ -4298,7 +4325,7 @@ function openMenuManager(){
       if(!name){showToast('メニュー名を入力してください');return;}
       const menu=activeTab==='food'?FOOD_MENU:DRINK_MENU;
       const item={name:name,price:price};
-      if(activeTab==='food'&&hasOpts.checked)item.hasOptions=true;
+      if(activeTab==='food'&&hasOpts.checked)item.hasOptions=true; // 未チェックでも麺類は自動で大盛り対応
       menu.push(item);
       newName.value='';newPrice.value='';hasOpts.checked=false;
       renderList();
