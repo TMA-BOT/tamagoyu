@@ -4104,7 +4104,8 @@ function buildLunchList(){
     roomSectionHtml='<div style="margin-top:12px;padding:12px;background:var(--blue-l);border-radius:10px;border:1.5px solid var(--blue);">'
       +'<div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">'
       +'<span>🏠 部屋付け一覧</span>'
-      +'<span>合計 ¥'+roomTotal.toLocaleString()+'</span>'
+      +'<span style="display:flex;align-items:center;gap:8px;">合計 ¥'+roomTotal.toLocaleString()
+      +'<button type="button" onclick="printRoomLunchSlips()" style="padding:4px 10px;border-radius:20px;border:1.5px solid var(--blue);background:#fff;color:var(--blue);font-size:11px;font-weight:700;cursor:pointer;">🖨 全部屋を印刷</button></span>'
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:6px;">';
     roomLunches.forEach(function(l){
@@ -4130,7 +4131,8 @@ function buildLunchList(){
       roomSectionHtml+='<div style="background:#fff;border-radius:8px;padding:8px 10px;">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">'
         +'<span style="font-size:13px;font-weight:700;color:var(--blue);">🏠 '+escHtml(roomLabel)+'</span>'
-        +'<span style="font-size:13px;font-weight:700;color:var(--text);">¥'+(l.charge||0).toLocaleString()+'</span>'
+        +'<span style="display:flex;align-items:center;gap:6px;"><span style="font-size:13px;font-weight:700;color:var(--text);">¥'+(l.charge||0).toLocaleString()+'</span>'
+        +'<button type="button" onclick="printRoomLunchSlips(\''+escHtml(l.roomNo||'')+'\')" title="この部屋の明細を印刷" style="padding:2px 8px;border-radius:20px;border:.5px solid var(--blue);background:#fff;color:var(--blue);font-size:11px;cursor:pointer;">🖨</button></span>'
         +'</div>'
         +'<div style="font-size:11px;color:var(--t2);">'+escHtml(menuStr)+'</div>'
         +'</div>';
@@ -4146,6 +4148,74 @@ function buildLunchList(){
   list.innerHTML=notifyBtn+legendHtml+gridHtml+addBtnHtml+summaryHtml+menuMgmtBtn;
 }
 
+// ===== 部屋付けの明細を1部屋1枚で印刷（B5縦が初期） =====
+// roomNo を渡すとその部屋だけ、渡さなければ部屋付けのある全部屋
+function printRoomLunchSlips(roomNo){
+  const roomLunches=LUNCHES.filter(function(l){
+    const fs=l.frontStatus||(l.roomNo?'room':(l.frontPaid!==false?'paid':'unpaid'));
+    return fs==='room'&&(roomNo==null||roomNo===undefined||(l.roomNo||'')===roomNo);
+  });
+  if(!roomLunches.length){showToast('部屋付けの伝票がありません');return;}
+  // 部屋ごとにまとめる（部屋番号順）
+  const byRoom={};
+  roomLunches.forEach(function(l){const k=l.roomNo||'';(byRoom[k]=byRoom[k]||[]).push(l);});
+  const rooms=Object.keys(byRoom).sort(function(a,b){return (parseInt(a)||9999)-(parseInt(b)||9999);});
+  const yen=function(n){return '¥'+(n||0).toLocaleString();};
+  const dateStr=formatDate(selectedDate);
+  const pages=rooms.map(function(room){
+    let total=0,body='';
+    byRoom[room].forEach(function(l){
+      const rows=[];
+      (l.foodItems||[]).forEach(function(f){
+        if(!f.name)return;
+        const q=f.qty||1,price=f.price||0;
+        rows.push([f.name+(f.onigiriFillings&&f.onigiriFillings.length?'（'+f.onigiriFillings.join('・')+'）':''),q,price]);
+        if(f.omakaseQty>0)rows.push(['　大盛り',f.omakaseQty,200]);
+        if(f.nigiriQty>0)rows.push(['　日替わりおにぎり',f.nigiriQty,200]);
+      });
+      (l.drinkItems||[]).forEach(function(d){if(d.name)rows.push([d.name,d.qty||1,d.price||0]);});
+      let sum=rows.reduce(function(s2,r){return s2+r[1]*r[2];},0);
+      const charge=(l.charge!=null&&l.charge!=='')?(parseInt(l.charge)||0):sum;
+      if(charge!==sum)rows.push(['　調整','','',charge-sum]); // 伝票の合計と品物の合計が違うとき
+      total+=charge;
+      const t=l.orderedAt?new Date(l.orderedAt):null;
+      body+='<tr class="tk"><td colspan="4">伝票 No.'+escHtml(String(l.ticketNo||''))+'　'+(l.pax||0)+'名'
+        +(t?'　'+String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0'):'')+'</td></tr>';
+      rows.forEach(function(r){
+        const amt=r.length>3?r[3]:r[1]*r[2];
+        body+='<tr><td>'+escHtml(String(r[0]))+'</td><td class="n">'+(r[1]!==''?r[1]:'')+'</td><td class="n">'+(r[2]!==''?yen(r[2]):'')+'</td><td class="n">'+yen(amt)+'</td></tr>';
+      });
+      body+='<tr class="sub"><td colspan="3">小計</td><td class="n">'+yen(charge)+'</td></tr>';
+    });
+    return '<div class="hd"><span>玉子湯</span><span>'+escHtml(dateStr)+'</span></div>'
+      +'<h1>ご昼食　お部屋付け明細</h1>'
+      +'<div class="room">'+(room?escHtml(room)+'<small>号室</small>':'部屋番号不明')+'</div>'
+      +'<table><thead><tr><th>品名</th><th class="n">数量</th><th class="n">単価</th><th class="n">金額</th></tr></thead><tbody>'+body+'</tbody></table>'
+      +'<div class="total"><span>合計</span><b>'+yen(total)+'</b></div>'
+      +'<p class="note">上記金額をお部屋付けとさせていただきます。ご出発の際にフロントにてご精算ください。</p>';
+  });
+  openFitPrint({
+    key:'room_lunch_slip',
+    title:'ランチ お部屋付け明細'+(roomNo?' '+roomNo+'号室':''),
+    sizes:['B5P','A4P','A5P','B5L'],def:'B5P',designWidth:640,
+    css:'.fit{font-family:"Hiragino Sans","Noto Sans JP","Meiryo",sans-serif;color:#111;padding:28px 34px;box-sizing:border-box;}'
+      +'.fit .hd{display:flex;justify-content:space-between;font-size:13px;color:#444;border-bottom:1px solid #999;padding-bottom:6px;}'
+      +'.fit h1{font-size:22px;font-weight:800;text-align:center;letter-spacing:.15em;margin:18px 0 8px;}'
+      +'.fit .room{font-size:40px;font-weight:900;text-align:center;margin:4px 0 16px;}'
+      +'.fit .room small{font-size:18px;font-weight:700;margin-left:4px;}'
+      +'.fit table{width:100%;border-collapse:collapse;font-size:15px;}'
+      +'.fit th{font-size:12px;color:#444;border-bottom:2px solid #111;padding:6px 4px;text-align:left;}'
+      +'.fit td{border-bottom:1px solid #ddd;padding:7px 4px;}'
+      +'.fit .n{text-align:right;white-space:nowrap;}'
+      +'.fit tr.tk td{background:#f2f2f2;font-size:12px;font-weight:700;color:#333;border-bottom:1px solid #bbb;padding:5px 6px;}'
+      +'.fit tr.sub td{font-size:13px;color:#333;border-bottom:1.5px solid #888;}'
+      +'.fit tr.sub td:first-child{text-align:right;}'
+      +'.fit .total{display:flex;justify-content:flex-end;align-items:baseline;gap:18px;margin-top:16px;padding:10px 4px;border-top:3px double #111;border-bottom:3px double #111;}'
+      +'.fit .total span{font-size:16px;font-weight:700;}.fit .total b{font-size:30px;font-weight:900;}'
+      +'.fit .note{font-size:12px;color:#444;margin-top:16px;line-height:1.6;}',
+    pages:pages,
+  });
+}
 function openMenuManager(){
   // 既存モーダルがあれば削除
   const existing=document.getElementById('menu-mgr-overlay');
@@ -10959,6 +11029,7 @@ function addShiftMember(){
 // 印刷
 // ===== 共通の印刷画面（用紙を選んで、用紙に合わせて拡大・縮小する） =====
 // opts: {title, bodyHtml, css, sizes:['A3L','A4L',...], def:'A3L', designWidth:px, note}
+//   pages:[html,...] を渡すと1ページずつ（それぞれ用紙に合わせて）印刷する
 //  - 高さのある用紙（A3/A4/A5）：中身全体を1枚に収まるよう拡大・縮小
 //  - レシート（R72）や long:true の印刷：用紙の幅に合わせ、長い分は次のページへ続ける
 var PRINT_PAPERS={
@@ -10968,6 +11039,8 @@ var PRINT_PAPERS={
   A4P:{l:'A4 縦',w:210,h:297,page:'A4 portrait'},
   A5L:{l:'A5 横',w:210,h:148,page:'A5 landscape'},
   A5P:{l:'A5 縦',w:148,h:210,page:'A5 portrait'},
+  B5P:{l:'B5 縦',w:182,h:257,page:'182mm 257mm'}, // 日本のB5（JIS）。CSSの B5 は国際規格で大きさが違うので寸法で指定
+  B5L:{l:'B5 横',w:257,h:182,page:'257mm 182mm'},
   R72:{l:'レシート 72mm',w:72,h:0,page:'72mm auto',m:2},
 };
 function _fitPrintPageScript(){
@@ -10979,15 +11052,18 @@ function _fitPrintPageScript(){
     O.sizes.forEach(function(k){var b=document.getElementById('b-'+k);if(b)b.className=k===key?'on':'';});
     var MM=96/25.4;
     var W=(P.w-m*2),H=P.h?(P.h-m*2):0;
-    var pg=document.getElementById('pg'),fit=document.getElementById('fit');
-    pg.style.width=W+'mm';
-    pg.style.height=long?'auto':H+'mm';
-    fit.style.zoom=1;
-    fit.style.width=O.designWidth+'px';
-    var natH=fit.scrollHeight;
-    var zw=(W*MM)/O.designWidth;
-    var z=long?zw:Math.min(zw,(H*MM-2)/natH);
-    fit.style.zoom=z;
+    // ページごとに、中身を用紙に合わせて拡大・縮小する
+    Array.prototype.forEach.call(document.querySelectorAll('.pg'),function(pg){
+      var fit=pg.querySelector('.fit');
+      pg.style.width=W+'mm';
+      pg.style.height=long?'auto':H+'mm';
+      fit.style.zoom=1;
+      fit.style.width=O.designWidth+'px';
+      var natH=fit.scrollHeight;
+      var zw=(W*MM)/O.designWidth;
+      var z=long?zw:Math.min(zw,(H*MM-2)/natH);
+      fit.style.zoom=z;
+    });
     try{localStorage.setItem('print_paper_'+O.key,key);}catch(e){}
   };
   var saved=null;try{saved=localStorage.getItem('print_paper_'+O.key);}catch(e){}
@@ -11008,15 +11084,17 @@ function openFitPrint(opts){
     +'.pbar button{padding:7px 14px;border-radius:8px;border:1.5px solid #2c4f7a;background:#fff;color:#2c4f7a;font-size:13px;font-weight:700;cursor:pointer;}'
     +'.pbar button.on{background:#2c4f7a;color:#fff;}'
     +'.pbar .print{background:#2d5a3d;border-color:#2d5a3d;color:#fff;margin-left:auto;}'
-    +'#pg{background:#fff;margin:12px auto;box-shadow:0 2px 12px rgba(0,0,0,.15);overflow:hidden;}'
-    +'@media print{body{background:#fff;}.pbar{display:none!important;}#pg{margin:0;box-shadow:none;overflow:visible;}}'
+    +'.pg{background:#fff;margin:12px auto;box-shadow:0 2px 12px rgba(0,0,0,.15);overflow:hidden;}'
+    +'@media print{body{background:#fff;}.pbar{display:none!important;}.pg{margin:0;box-shadow:none;overflow:visible;break-after:page;}.pg:last-child{break-after:auto;}}'
     +(opts.css||'')
     +'</style></head><body>'
     +'<div class="pbar"><span style="font-size:12px;font-weight:700;color:#555;">用紙</span>'
     +sizes.map(function(k){return '<button type="button" id="b-'+k+'" onclick="setSize(\''+k+'\')">'+PRINT_PAPERS[k].l+'</button>';}).join('')
     +'<button type="button" class="print" onclick="window.print()">🖨 印刷</button>'
     +'<button type="button" onclick="window.close()">閉じる</button></div>'
-    +'<div id="pg"><div id="fit">'+opts.bodyHtml+'</div></div>'
+    +(opts.pages&&opts.pages.length
+      ?opts.pages.map(function(h){return '<div class="pg"><div class="fit">'+h+'</div></div>';}).join('') // 1ページずつ
+      :'<div id="pg" class="pg"><div id="fit" class="fit">'+opts.bodyHtml+'</div></div>')
     +'<script>var O='+JSON.stringify(O).replace(/</g,'\\u003c')+';('+_fitPrintPageScript.toString()+')();<\/script>'
     +'</body></html>';
   var w=window.open('','_blank','width=1100,height=900');

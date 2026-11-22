@@ -99,6 +99,9 @@ const fs = lu.frontStatus || (lu.roomNo ? 'room' : (lu.frontPaid!==false ? 'paid
 2. **🏠 部屋付け一覧セクション**（青枠ボックス）
    - 部屋番号・メニュー内容・金額を一覧表示
    - 部屋付けが0件の場合は非表示
+   - 「🖨 全部屋を印刷」／各行の「🖨」で、部屋ごとの明細を1部屋1枚で印刷（`printRoomLunchSlips(roomNo)`。初期はB5縦、A4縦・A5縦・B5横も可）
+     - 伝票ごとに品名・数量・単価・金額・小計、大盛り・日替わりおにぎりは別の行（+¥200）、最後に部屋の合計
+     - 伝票の合計（`charge`）と品物の合計が違うときは差額を「調整」の行で出す
 
 ### 関連コード
 - `buildLunchList()` 関数 — index.html 約3410行〜
@@ -246,7 +249,8 @@ CSV取込では団体・ツアーが1部屋にまとめて入るため、そこ�
 どの印刷も「用紙を選んで、その用紙に合わせて拡大・縮小する」形にそろえている。新しく印刷を作るときもこれに合わせる。
 
 - 共通の印刷画面：`openFitPrint(opts)`（中身のHTMLを渡す）／`openFitPrintDoc(html,opts)`（完成済みのHTML文書を渡す）
-  - `opts.sizes`：選べる用紙（`PRINT_PAPERS` の A3L/A3P/A4L/A4P/A5L/A5P/R72）、`def`：初期の用紙、`designWidth`：中身を組む幅（px）、`key`：前回選んだ用紙を覚えるための名前
+  - `opts.sizes`：選べる用紙（`PRINT_PAPERS` の A3L/A3P/A4L/A4P/A5L/A5P/B5P/B5L/R72。B5は日本のB5＝182×257mmを寸法で指定）
+  - `opts.pages:[html,...]` を渡すと1ページずつ（それぞれ用紙に合わせて）印刷、`def`：初期の用紙、`designWidth`：中身を組む幅（px）、`key`：前回選んだ用紙を覚えるための名前
   - 高さのある用紙は中身全体を1枚に収まるよう拡大・縮小（CSS `zoom`）。`long:true` やレシート（R72）は用紙の幅に合わせ、長い分は次のページへ続ける
   - 印刷画面のプログラムは `_fitPrintPageScript()` に普通の関数として書き、`toString()` で渡す
   - プレビューを見てから「🖨 印刷」を押す形（開いてすぐ印刷はしない）
@@ -259,6 +263,7 @@ CSV取込では団体・ツアーが1部屋にまとめて入るため、そこ�
 | お品書き（2枚並び） | `printOshinagaki()` → `openFitPrintDoc` | A4横・A3横 |
 | ランチの月集計 | `printMonthlySummary()` → `openFitPrint`（long） | A4縦・A3縦・A4横・A3横（幅に合わせて複数ページ） |
 | 別注注文書 | `printBetchu(idx)` → `openFitPrint` | レシート72mm・A5縦・A4縦 |
+| ランチの部屋付け明細 | `printRoomLunchSlips(roomNo)` → `openFitPrint`（pages） | B5縦・A4縦・A5縦・B5横（1部屋1枚） |
 | 別注・ALG伝票／ランチ伝票 | `printBetchuSelected()` など | 72mmレシート固定（レシートプリンター用。変えない） |
 | 車ナンバー集計 | `number_counter.html` の `ncPrint()` | A4横・A3横（A3は `zoom` で拡大） |
 
