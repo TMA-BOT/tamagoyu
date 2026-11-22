@@ -102,6 +102,7 @@ const fs = lu.frontStatus || (lu.roomNo ? 'room' : (lu.frontPaid!==false ? 'paid
    - 「🖨 全部屋を印刷」／各行の「🖨」で、部屋ごとの明細を1部屋1枚で印刷（`printRoomLunchSlips(roomNo)`。初期はB5縦、A4縦・A5縦・B5横も可）
      - 伝票ごとに品名・数量・単価・金額・小計、大盛り・日替わりおにぎりは別の行（+¥200）、最後に部屋の合計
      - 伝票の合計（`charge`）と品物の合計が違うときは差額を「調整」の行で出す
+     - フロントの確認用。最後に「入力済」のハンコ欄（約3cm角、右下）
 
 ### 関連コード
 - `buildLunchList()` 関数 — index.html 約3410行〜
